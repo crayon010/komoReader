@@ -1,0 +1,11 @@
+spring:
+  # 代码不使用数据库，排除数据源自动配置：未安装 MySQL 的电脑也能启动
+  # 注意 Spring Boot 4 的 DataSourceAutoConfiguration 在 jdbc.autoconfigure 包下
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
+
+# 服务器配置
+server:
+  port: 1236

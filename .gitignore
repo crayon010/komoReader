@@ -1,0 +1,23 @@
+# --- Java / Maven ---
+backend/target/
+backend/.idea/
+*.iml
+*.log
+
+# --- Node ---
+frontend/node_modules/
+frontend/dist/
+
+# --- 打包产物（前端 build 拷入的 static 与 jpackage 输出，均为生成物） ---
+backend/src/main/resources/static/
+backend/package/
+backend/jpackage-input/
+
+# --- IDE / 工具本地配置 ---
+.idea/
+frontend/.vscode/
+frontend/.claude/
+
+# --- OS ---
+Thumbs.db
+.DS_Store
