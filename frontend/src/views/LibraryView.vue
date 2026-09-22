@@ -1,49 +1,47 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue';
 
-import { fetchMangaList } from '@/api/manga'
-import type { Manga } from '@/types/manga'
-import VirtualMangaGrid from '@/components/VirtualMangaGrid.vue'
-import { openReaderTab } from '@/stores/tabs'
+import { fetchMangaList } from '@/api/manga';
+import type { Manga } from '@/types/manga';
+import VirtualMangaGrid from '@/components/VirtualMangaGrid.vue';
+import { openReaderTab } from '@/stores/tabs';
 
-defineOptions({ name: 'LibraryView' })
+defineOptions({ name: 'LibraryView' });
 
-const mangaList = ref<Manga[]>([])
-const loading = ref(false)
-const error = ref('')
+const mangaList = ref<Manga[]>([]);
+const loading = ref(false);
+const error = ref('');
 
 async function load() {
-  loading.value = true
-  error.value = ''
+  loading.value = true;
+  error.value = '';
   try {
-    const res = await fetchMangaList()
-    mangaList.value = res.data
+    const res = await fetchMangaList();
+    mangaList.value = res.data;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    error.value = e instanceof Error ? e.message : String(e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function openReader(manga: Manga) {
-  openReaderTab(manga)
+  openReaderTab(manga);
 }
 
-onMounted(load)
+onMounted(load);
 </script>
 
 <template>
   <div class="library">
     <div class="library-toolbar">
-      <h1>漫画库</h1>
+      <h1>阅读库</h1>
       <button type="button" :disabled="loading" @click="load">刷新</button>
     </div>
 
     <p v-if="loading" class="state">加载中…</p>
     <p v-else-if="error" class="state error">{{ error }}</p>
-    <p v-else-if="mangaList.length === 0" class="state">
-      暂无漫画，去「设置」导入文件夹
-    </p>
+    <p v-else-if="mangaList.length === 0" class="state">暂无文件，去「设置」导入文件夹</p>
     <VirtualMangaGrid v-else :items="mangaList" @open="openReader" />
   </div>
 </template>

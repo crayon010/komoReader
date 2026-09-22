@@ -1,36 +1,27 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref } from 'vue';
 
-import { importFolder, postTest } from '@/api/manga'
+import { importFolder } from '@/api/manga';
 
-const path = ref('')
-const loading = ref(false)
-const message = ref('')
-
-const user = ref('');
-const password = ref();
+const path = ref('');
+const loading = ref(false);
+const message = ref('');
 
 async function submit() {
-  const p = path.value.trim()
-  if (!p || loading.value) return
+  const p = path.value.trim();
+  if (!p || loading.value) return;
 
-  loading.value = true
-  message.value = ''
+  loading.value = true;
+  message.value = '';
   try {
-    const res = await importFolder(p)
-    message.value = res.message || '导入成功'
-    path.value = ''
+    const res = await importFolder(p);
+    message.value = res.message || '导入成功';
+    path.value = '';
   } catch (e) {
-    message.value = e instanceof Error ? e.message : String(e)
+    message.value = e instanceof Error ? e.message : String(e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
-
-async function getPostTest() {
-  // console.log(222, user.value, password.value)
-  const res = await postTest(user.value, password.value);
-  console.log(11111, res)
 }
 </script>
 
@@ -39,22 +30,22 @@ async function getPostTest() {
     <h1>设置</h1>
 
     <form class="settings-form" @submit.prevent="submit">
-      <label for="folder-path">漫画文件夹路径</label>
+      <label for="folder-path">文件夹路径</label>
       <p class="settings-hint">
         填写后端可访问的本地文件夹路径（支持 zip / cbz 等压缩包），提交后由后端扫描并导入。
       </p>
-      <input id="folder-path" v-model="path" type="text" placeholder="例如：D:\manga" autocomplete="off" />
-
+      <input
+        id="folder-path"
+        v-model="path"
+        type="text"
+        placeholder="例如：D:\manga"
+        autocomplete="off"
+      />
 
       <button type="submit" :disabled="loading || !path.trim()">
         {{ loading ? '导入中…' : '导入' }}
       </button>
     </form>
-    <input id="post-test" v-model="user" type="text" placeholder="post-test" autocomplete="off" />
-    <input id="post-test1" v-model="password" type="text" placeholder="post-test" autocomplete="off" />
-    <button type="submit" @click="getPostTest">
-      post test
-    </button>
     <p v-if="message" class="settings-message">{{ message }}</p>
   </div>
 </template>

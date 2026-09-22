@@ -1,8 +1,8 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router';
 
 declare module 'vue-router' {
   interface RouteMeta {
-    title?: string
+    title?: string;
   }
 }
 
@@ -14,7 +14,7 @@ const router = createRouter({
       path: '/',
       name: 'library',
       component: () => import('@/views/LibraryView.vue'),
-      meta: { title: '漫画库' },
+      meta: { title: '阅读库' },
     },
     // 阅读器不再走路由：由 App.vue 里的 tab 页承载（见 stores/tabs.ts）
     {
@@ -24,10 +24,12 @@ const router = createRouter({
       meta: { title: '设置' },
     },
   ],
-})
+});
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · 漫画阅读器` : '漫画阅读器'
-})
+  document.title = to.meta.title
+    ? `${to.meta.title} · 漫画/小说/PDF文件阅读器`
+    : '漫画/小说/PDF文件阅读器';
+});
 
-export default router
+export default router;

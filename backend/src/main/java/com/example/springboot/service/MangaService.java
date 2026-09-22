@@ -36,49 +36,110 @@ public class MangaService {
         Map<String, CacheEntry> disk = loadCache();
         Map<String, CacheEntry> fresh = new HashMap<>();
         cache.clear();
+
+        // 扫描文件和文件夹
         try (Stream<Path> stream = Files.list(root)) {
-            stream.filter(p -> {
-                    String fileName = p.getFileName().toString().toLowerCase();
-                    return fileName.endsWith(".zip") || fileName.endsWith(".cbz")
-                            || fileName.endsWith(".mobi") || fileName.endsWith(".epub")
-                            || fileName.endsWith(".txt") || fileName.endsWith(".pdf")
-                            || disk.containsKey(p.getFileName().toString())
-                            || isZipFile(p);
-                })
-                .forEach(p -> {
-                    try {
-                        String fileName = p.getFileName().toString();
-                        String type = typeOf(fileName);
-                        CacheEntry e = disk.get(fileName);
-                        long mtime = Files.getLastModifiedTime(p).toMillis();
-                        long size = Files.size(p);
-                        if (e == null || e.lastModified() != mtime || e.size() != size) {
-                            Integer totalPages = null;
-                            // 只有漫画数图片；mobi/epub/txt/pdf 不拆包统计
-                            if ("manga".equals(type) && !fileName.toLowerCase().endsWith(".mobi")) {
-                                totalPages = ZipImageReader.listImages(p).size();
+            stream.forEach(p -> {
+                try {
+                    if (Files.isDirectory(p)) {
+                        // 子文件夹：检查是否有图片
+                        if (hasImages(p)) {
+                            String folderName = p.getFileName().toString();
+                            CacheEntry e = disk.get(folderName);
+                            long mtime = Files.getLastModifiedTime(p).toMillis();
+                            long size = getDirectorySize(p);
+                            if (e == null || e.lastModified() != mtime || e.size() != size) {
+                                Integer totalPages = countImagesInDirectory(p);
+                                e = new CacheEntry(mtime, size, totalPages);
                             }
-                            e = new CacheEntry(mtime, size, totalPages);
+                            fresh.put(folderName, e);
+
+                            MangaMeta meta = new MangaMeta();
+                            meta.setId(getFixedHash(folderName));
+                            meta.setName(folderName);
+                            meta.setTotalPages(e.totalPages());
+                            meta.setType("manga");
+                            meta.setPath(p.toString());
+                            cache.put(meta.getId(), meta);
                         }
-                        fresh.put(fileName, e);
+                    } else {
+                        // 文件：检查是否支持
+                        String fileName = p.getFileName().toString().toLowerCase();
+                        if (fileName.endsWith(".zip") || fileName.endsWith(".cbz")
+                                || fileName.endsWith(".mobi") || fileName.endsWith(".epub")
+                                || fileName.endsWith(".txt") || fileName.endsWith(".pdf")
+                                || disk.containsKey(fileName)
+                                || isZipFile(p)) {
+                            String type = typeOf(fileName);
+                            CacheEntry e = disk.get(fileName);
+                            long mtime = Files.getLastModifiedTime(p).toMillis();
+                            long size = Files.size(p);
+                            if (e == null || e.lastModified() != mtime || e.size() != size) {
+                                Integer totalPages = null;
+                                // 只有漫画数图片；mobi/epub/txt/pdf 不拆包统计
+                                if ("manga".equals(type) && !fileName.toLowerCase().endsWith(".mobi")) {
+                                    totalPages = ZipImageReader.listImages(p).size();
+                                }
+                                e = new CacheEntry(mtime, size, totalPages);
+                            }
+                            fresh.put(fileName, e);
 
-                        MangaMeta meta = new MangaMeta();
-                        meta.setId(getFixedHash(fileName));
-                        meta.setName(fileName);
-                        meta.setTotalPages(e.totalPages());
-                        meta.setType(type);
-                        meta.setPath(p.toString());
-                        cache.put(meta.getId(), meta);
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    } catch (NoSuchAlgorithmException ex) {
-                        throw new RuntimeException(ex);
+                            MangaMeta meta = new MangaMeta();
+                            meta.setId(getFixedHash(fileName));
+                            meta.setName(fileName);
+                            meta.setTotalPages(e.totalPages());
+                            meta.setType(type);
+                            meta.setPath(p.toString());
+                            cache.put(meta.getId(), meta);
+                        }
                     }
-                });
-
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                } catch (NoSuchAlgorithmException ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
         }
         saveCache(fresh);
         return new ArrayList<>(cache.values());
+    }
+
+    // 检查目录是否有图片
+    private boolean hasImages(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.list(dir)) {
+            return stream.anyMatch(p -> {
+                String name = p.getFileName().toString().toLowerCase();
+                return name.matches(".*\\.(jpg|jpeg|png|webp)$");
+            });
+        }
+    }
+
+    // 统计目录中的图片数量
+    private int countImagesInDirectory(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.list(dir)) {
+            return (int) stream
+                .filter(p -> {
+                    String name = p.getFileName().toString().toLowerCase();
+                    return name.matches(".*\\.(jpg|jpeg|png|webp)$");
+                })
+                .count();
+        }
+    }
+
+    // 获取目录大小（用于缓存判断）
+    private long getDirectorySize(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.walk(dir)) {
+            return stream
+                .filter(Files::isRegularFile)
+                .mapToLong(p -> {
+                    try {
+                        return Files.size(p);
+                    } catch (IOException e) {
+                        return 0;
+                    }
+                })
+                .sum();
+        }
     }
 
     static String typeOf(String fileName) {
@@ -151,5 +212,42 @@ public class MangaService {
             throw new NoSuchElementException("Unknown manga id: " + id);
         }
         return root.resolve(meta.getName());
+    }
+
+    // 获取漫画文件路径，如果是文件夹则返回文件夹路径
+    public Path getMangaPath(String id) {
+        MangaMeta meta = cache.get(id);
+        if (meta == null) {
+            throw new NoSuchElementException("Unknown manga id: " + id);
+        }
+        return root.resolve(meta.getName());
+    }
+
+    // List images in directory
+    public List<String> listImagesInDirectory(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.list(dir)) {
+            return stream
+                .filter(p -> {
+                    String name = p.getFileName().toString().toLowerCase();
+                    return name.matches(".*\\.(jpg|jpeg|png|webp)$");
+                })
+                .map(Path::getFileName)
+                .map(Path::toString)
+                .sorted()
+                .toList();
+        }
+    }
+
+    // Read image from directory
+    public byte[] readImage(Path dir, String imageName) throws IOException {
+        Path imagePath = dir.resolve(imageName);
+        return Files.readAllBytes(imagePath);
+    }
+
+    // Get content type for image
+    public String contentType(String imageName) {
+        return imageName.toLowerCase().endsWith(".png") ? "image/png"
+                : imageName.toLowerCase().endsWith(".webp") ? "image/webp"
+                : "image/jpeg";
     }
 }

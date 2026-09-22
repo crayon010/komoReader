@@ -1,104 +1,174 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { mangaPageUrl } from '@/api/manga'
-import { activateLibrary } from '@/stores/tabs'
+import { mangaPageUrl } from '@/api/manga';
+import { activateLibrary, loadProgress, saveProgress } from '@/stores/tabs';
 
 const props = defineProps<{
-  mangaId: string
-  mangaName: string
-  totalPages: number
+  mangaId: string;
+  mangaName: string;
+  totalPages: number;
   /** tab 是否处于激活态；只有激活的 tab 响应键盘操作 */
-  active: boolean
-}>()
+  active: boolean;
+}>();
 
-const router = useRouter()
+const router = useRouter();
 
-const current = ref(0)
-const scale = ref(0.3)
+const current = ref(0);
+const scale = ref(0.3);
+const stage = ref<HTMLElement | null>(null);
 
 // 浏览模式：单页/双页 + 翻页/滚动，选择持久化到 localStorage
 const pageMode = ref<'single' | 'double'>(
   localStorage.getItem('readerPageMode') === 'double' ? 'double' : 'single',
-)
+);
 const readMode = ref<'page' | 'scroll'>(
   localStorage.getItem('readerScrollMode') === 'scroll' ? 'scroll' : 'page',
-)
+);
 
-watch(pageMode, (v) => localStorage.setItem('readerPageMode', v))
-watch(readMode, (v) => localStorage.setItem('readerScrollMode', v))
+watch(pageMode, (v) => localStorage.setItem('readerPageMode', v));
+watch(readMode, (v) => localStorage.setItem('readerScrollMode', v));
 
-const total = computed(() => props.totalPages)
-const step = computed(() => (pageMode.value === 'double' ? 2 : 1))
+const total = computed(() => props.totalPages);
+const step = computed(() => (pageMode.value === 'double' ? 2 : 1));
+
+// 进度按百分比存 localStorage（与小说共用一套 key），刷新页面后重新进入可续读
+const savedProgress = loadProgress(props.mangaId);
+if (total.value > 0 && savedProgress !== null) {
+  current.value = Math.min(total.value - 1, Math.max(0, Math.round(savedProgress * total.value)));
+}
+
+watch(current, (page) => {
+  if (total.value > 0) saveProgress(props.mangaId, page / total.value);
+});
+
 const currentUrl = computed(() =>
   total.value > 0 ? mangaPageUrl(props.mangaId, current.value) : '',
-)
+);
 const nextUrl = computed(() =>
   total.value > 0 && current.value + 1 < total.value
     ? mangaPageUrl(props.mangaId, current.value + 1)
     : '',
-)
+);
 
 function prev() {
-  if (current.value > 0) current.value = Math.max(0, current.value - step.value)
+  if (current.value > 0) current.value = Math.max(0, current.value - step.value);
 }
 
 function next() {
   if (current.value < total.value - 1) {
-    current.value = Math.min(total.value - 1, current.value + step.value)
+    current.value = Math.min(total.value - 1, current.value + step.value);
   }
+}
+
+let stageRaf = 0;
+
+/** 滚动模式没有页码概念，用滚动位置反推当前页；翻页模式由 current 直接驱动 */
+function onStageScroll() {
+  if (readMode.value !== 'scroll' || stageRaf) return;
+  stageRaf = window.requestAnimationFrame(() => {
+    stageRaf = 0;
+    const el = stage.value;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    const imgs = el.querySelectorAll('img');
+    for (let i = 0; i < imgs.length; i++) {
+      if (imgs[i].getBoundingClientRect().bottom > top + 1) {
+        if (current.value !== i) current.value = i;
+        return;
+      }
+    }
+  });
+}
+
+/**
+ * 滚动模式续读：懒加载的图片加载完才有高度，先等目标页及其之前的图片就绪再定位，
+ * 否则前面全是 0 高度，滚动距离算不出正确位置。
+ */
+function restoreScrollPosition() {
+  if (readMode.value !== 'scroll' || current.value <= 0) return;
+  nextTick(() => {
+    const el = stage.value;
+    if (!el) return;
+    const imgs = Array.from(el.querySelectorAll('img'));
+    const target = imgs[current.value];
+    if (!target) return;
+    const jump = () => {
+      el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    };
+    const pending = imgs.slice(0, current.value + 1).filter((img) => !img.complete);
+    if (pending.length === 0) {
+      jump();
+      return;
+    }
+    void Promise.all(
+      pending.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            img.addEventListener('load', () => resolve(), { once: true });
+            img.addEventListener('error', () => resolve(), { once: true });
+          }),
+      ),
+    ).then(jump);
+  });
 }
 
 function zoomIn() {
-  scale.value = Math.min(scale.value + 0.2, 4)
+  scale.value = Math.min(scale.value + 0.2, 4);
 }
 
 function zoomOut() {
-  scale.value = Math.max(scale.value - 0.2, 0.1)
+  scale.value = Math.max(scale.value - 0.2, 0.1);
 }
 
 function resetZoom() {
-  scale.value = 1
+  scale.value = 1;
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (!props.active) return
+  if (!props.active) return;
   switch (e.key) {
     case 'ArrowLeft':
-      prev()
-      break
+      prev();
+      break;
     case 'ArrowRight':
-      next()
-      break
+      next();
+      break;
     case 'ArrowUp':
     case '+':
     case '=':
-      zoomIn()
-      break
+      zoomIn();
+      break;
     case 'ArrowDown':
     case '-':
-      zoomOut()
-      break
+      zoomOut();
+      break;
     case 'Escape':
-      resetZoom()
-      break
+      resetZoom();
+      break;
   }
 }
 
-/** 回到漫画库：tab 保持打开，随时可切回来 */
+/** 回到阅读库：tab 保持打开，随时可切回来 */
 function goLibrary() {
-  activateLibrary()
-  router.push('/')
+  activateLibrary();
+  router.push('/');
 }
 
+watch(readMode, (v) => {
+  if (v === 'scroll') restoreScrollPosition();
+});
+
 onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-})
+  window.addEventListener('keydown', onKeydown);
+  restoreScrollPosition();
+});
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
-})
+  window.removeEventListener('keydown', onKeydown);
+  if (stageRaf) window.cancelAnimationFrame(stageRaf);
+});
 </script>
 
 <template>
@@ -114,26 +184,33 @@ onBeforeUnmount(() => {
         }}
       </span>
       <div class="reader-modes">
-        <button
-          type="button"
-          :class="{ 'is-on': pageMode === 'single' }"
-          @click="pageMode = 'single'"
-        >单页</button>
-        <button
-          type="button"
-          :class="{ 'is-on': pageMode === 'double' }"
-          @click="pageMode = 'double'"
-        >双页</button>
-        <button
-          type="button"
-          :class="{ 'is-on': readMode === 'page' }"
-          @click="readMode = 'page'"
-        >翻页</button>
+        <div v-show="readMode === 'page'">
+          <button
+            type="button"
+            :class="{ 'is-on': pageMode === 'single' }"
+            @click="pageMode = 'single'"
+          >
+            单页
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-on': pageMode === 'double' }"
+            @click="pageMode = 'double'"
+          >
+            双页
+          </button>
+        </div>
+
+        <button type="button" :class="{ 'is-on': readMode === 'page' }" @click="readMode = 'page'">
+          翻页
+        </button>
         <button
           type="button"
           :class="{ 'is-on': readMode === 'scroll' }"
           @click="readMode = 'scroll'"
-        >滚动</button>
+        >
+          滚动
+        </button>
       </div>
       <div class="reader-zoom">
         <button type="button" @click="zoomOut">−</button>
@@ -142,15 +219,15 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="total" class="reader-stage">
-      <!-- 滚动模式：全部页面纵向排列，原生 loading=lazy 按需加载 -->
+    <div v-if="total" ref="stage" class="reader-stage" @scroll.passive="onStageScroll">
+      <!-- 滚动模式：全部页面纵向排列；当前页之前的图片要立即加载，续读时才能算准滚动位置 -->
       <template v-if="readMode === 'scroll'">
         <img
           v-for="i in total"
           :key="i"
           :src="mangaPageUrl(mangaId, i - 1)"
           :alt="mangaName"
-          loading="lazy"
+          :loading="i - 1 <= current ? 'eager' : 'lazy'"
           :style="{ width: `${scale * 100}%` }"
         />
       </template>
@@ -236,7 +313,8 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow: auto;
   padding: 16px;
-  background: #000;
+  cursor: pointer;
+  background: var(--bg-elevated);
 }
 
 .reader-stage img {

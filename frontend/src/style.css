@@ -36,7 +36,12 @@ body,
 }
 
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
     sans-serif;
   background: var(--bg);
   color: var(--text);

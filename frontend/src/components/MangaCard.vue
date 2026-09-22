@@ -1,42 +1,44 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch } from 'vue';
 
-import type { Manga } from '@/types/manga'
-import { mangaTypeLabel } from '@/types/manga'
-import { loadCover } from '@/utils/coverLoader'
+import type { Manga } from '@/types/manga';
+import { mangaTypeLabel } from '@/types/manga';
+import { loadCover } from '@/utils/coverLoader';
+import { useLink } from 'vue-router';
 
 const props = withDefaults(
   defineProps<{
-    manga: Manga
+    manga: Manga;
     /** 卡片实际显示宽度（px），用于请求对应档位的缩略图 */
-    coverWidth?: number
+    coverWidth?: number;
   }>(),
   { coverWidth: 320 },
-)
+);
 
-const coverSrc = ref('')
-const loaded = ref(false)
-const failed = ref(false)
+const coverSrc = ref('');
+const loaded = ref(false);
+const failed = ref(false);
 
-let requestToken = 0
+let requestToken = 0;
 
 watch(
   () => [props.manga, props.coverWidth] as const,
   async ([manga, width]) => {
-    const token = ++requestToken
-    coverSrc.value = ''
-    loaded.value = false
-    failed.value = false
+    const token = ++requestToken;
+    coverSrc.value = '';
+    loaded.value = false;
+    failed.value = false;
     try {
-      const url = await loadCover(manga, width)
-      if (token !== requestToken) return
-      coverSrc.value = url
+      const url = await loadCover(manga, width);
+      if (token !== requestToken) return;
+      coverSrc.value = url;
+      if (url === '') failed.value = true;
     } catch {
-      if (token === requestToken) failed.value = true
+      if (token === requestToken) failed.value = true;
     }
   },
   { immediate: true },
-)
+);
 </script>
 
 <template>
@@ -75,7 +77,9 @@ watch(
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .manga-card:hover {
@@ -88,7 +92,7 @@ watch(
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: #000;
+  background: var(--bg-card);
 }
 
 .manga-card-badge {
@@ -109,11 +113,11 @@ watch(
 }
 
 .manga-card-badge.is-novel {
-  background: #f5a623;
+  background: #e5484d;
 }
 
 .manga-card-badge.is-pdf {
-  background: #e5484d;
+  background: #f5a623;
 }
 
 .manga-card-cover img {
@@ -140,6 +144,7 @@ watch(
   from {
     background-position: 120% 0;
   }
+
   to {
     background-position: -80% 0;
   }
@@ -161,7 +166,7 @@ watch(
 /* 高度需与 VirtualMangaGrid 的 CARD_INFO_HEIGHT 保持一致 */
 .manga-card-info {
   box-sizing: border-box;
-  height: 56px;
+  height: 64px;
   padding: 10px 12px;
 }
 
@@ -170,7 +175,10 @@ watch(
   font-size: 14px;
   font-weight: 500;
   line-height: 1.2;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  /* 限制2行 */
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
 }

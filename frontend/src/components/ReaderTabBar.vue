@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRouter } from 'vue-router';
 
 import {
   MAX_READER_TABS,
@@ -7,12 +7,14 @@ import {
   closeReaderTab,
   activateReaderTab,
   tabsState,
-} from '@/stores/tabs'
+  activateLibrary,
+} from '@/stores/tabs';
 
-const router = useRouter()
+const router = useRouter();
 
 function goLibrary() {
-  router.push('/')
+  activateLibrary();
+  router.push('/');
 }
 </script>
 
@@ -26,7 +28,7 @@ function goLibrary() {
       :aria-selected="activeMangaId === ''"
       @click="goLibrary"
     >
-      漫画库
+      阅读库
     </button>
     <div
       v-for="tab in tabsState.readerTabs"
