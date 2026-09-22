@@ -87,17 +87,31 @@ export function closeReaderTab(mangaId: string) {
   }
 }
 
-/** 保存阅读进度到 store 和 localStorage */
-export function saveProgress(mangaId: string, progress: number) {
+/**
+ * 保存阅读进度到 store 和 localStorage。
+ * progress 是百分比 0-1；cfi 仅 epub 用，跳转不依赖 locations，可立即渲染。
+ * progress 传 undefined 表示当前位置还无法换算成百分比（locations 未生成），此时只存 cfi。
+ */
+export function saveProgress(mangaId: string, progress?: number, cfi?: string) {
   const tab = state.readerTabs.find((t) => t.mangaId === mangaId);
-  if (tab) {
-    tab.currentProgress = progress;
+  if (progress !== undefined) {
+    if (tab) {
+      tab.currentProgress = progress;
+    }
+    localStorage.setItem(`tab_progress_${mangaId}`, progress.toString());
   }
-  localStorage.setItem(`tab_progress_${mangaId}`, progress.toString());
+  if (cfi) {
+    localStorage.setItem(`tab_cfi_${mangaId}`, cfi);
+  }
 }
 
 /** 从 localStorage 加载阅读进度 */
 export function loadProgress(mangaId: string): number | null {
   const saved = localStorage.getItem(`tab_progress_${mangaId}`);
   return saved ? parseFloat(saved) : null;
+}
+
+/** 加载 epub 续读位置（CFI） */
+export function loadCfi(mangaId: string): string | null {
+  return localStorage.getItem(`tab_cfi_${mangaId}`);
 }

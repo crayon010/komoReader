@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import ePub, { type Rendition } from 'epubjs';
 
 import { mangaFileUrl } from '@/api/manga';
-import { activateLibrary, saveProgress, loadProgress } from '@/stores/tabs';
+import { activateLibrary, saveProgress, loadCfi } from '@/stores/tabs';
 import { mangaTypeLabel } from '@/types/manga';
 
 const props = defineProps<{
@@ -54,15 +54,22 @@ onMounted(async () => {
         manager: 'default',
         allowScriptedContent: false,
       });
-      // relocated 里的 percentage、按百分比跳转的 display(0-1) 都依赖 locations，必须先生成
-      await book.ready;
-      await book.locations.generate(1600);
+      // 页码由 locations 换算，locations 未生成时先不显示
+      function updatePageInfo(percent: number) {
+        const count = book.locations.length();
+        if (count === 0) return;
+        totalPages.value = count;
+        currentPage.value = Math.min(count, Math.round(percent * count) + 1);
+      }
 
-      // 续读上次进度：进度存的是百分比（0-1）
-      const saved = loadProgress(props.mangaId);
-      if (saved !== null && saved > 0 && saved <= 1) {
-        await rendition.value.display(saved);
+      await book.ready;
+
+      // 续读用 CFI：display(cfi) 不依赖 locations，能立刻出画面
+      const cfi = loadCfi(props.mangaId);
+      if (cfi && book.spine.get(cfi)) {
+        await rendition.value.display(cfi);
       } else {
+        // cfi 失效（同名文件被替换时 id 不变）走这里
         await rendition.value.display();
         // 导航到第一页（避免渲染默认的 page-list 符号）
         const firstHref = book.spine.get(0)?.href;
@@ -71,16 +78,22 @@ onMounted(async () => {
         }
       }
 
-      // 翻页时保存进度（百分比 0-1，比 CFI 更稳定）
-      rendition.value.on('relocated', (location: any) => {
-        const percent = location?.start?.percentage ?? 0;
-        saveProgress(props.mangaId, percent);
+      // ponytail: locations 要逐节解析全书，epub.js 每节固定等 100ms（54 节≈5.6s），放后台只用来算页码
+      book.locations
+        .generate(1600)
+        .then(() => {
+          const cur = rendition.value?.location?.start?.cfi;
+          updatePageInfo(cur ? book.locations.percentageFromCfi(cur) : 0);
+        })
+        .catch(() => {});
 
-        const locationCount = book.locations.length();
-        if (locationCount > 0) {
-          totalPages.value = locationCount;
-          currentPage.value = Math.min(locationCount, Math.round(percent * locationCount) + 1);
-        }
+      // 翻页时保存进度：百分比给 tab 复用，CFI 保证下次打开能回到原位置
+      rendition.value.on('relocated', (location: any) => {
+        const indexed = book.locations.length() > 0;
+        const percent = location?.start?.percentage ?? 0;
+        // locations 未生成时 percentage 恒为 0，写进去会清掉已有进度
+        saveProgress(props.mangaId, indexed ? percent : undefined, location?.start?.cfi);
+        if (indexed) updatePageInfo(percent);
       });
     }
   } catch (e) {
