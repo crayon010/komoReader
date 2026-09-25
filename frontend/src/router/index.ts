@@ -27,9 +27,7 @@ const router = createRouter({
 });
 
 router.afterEach((to) => {
-  document.title = to.meta.title
-    ? `${to.meta.title} · 漫画/小说/PDF文件阅读器`
-    : '漫画/小说/PDF文件阅读器';
+  document.title = `komoReader · 漫画/小说/PDF文件阅读器`;
 });
 
 export default router;

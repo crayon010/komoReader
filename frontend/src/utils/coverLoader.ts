@@ -21,7 +21,7 @@ const MAX_CONCURRENT = 4;
 const WEBP_QUALITY = 0.82;
 
 const cache = new Map<string, string>();
-/** 加载失败的封面，永久标记，不再重复请求（刷新页面才重置） */
+/** 加载失败的封面，本次会话内不再重复请求；点"刷新"或整页刷新后重置 */
 const failedKeys = new Set<string>();
 const inflight = new Map<string, Promise<string>>();
 const highQueue: Array<() => void> = [];
@@ -38,7 +38,8 @@ export function bucketWidth(target: number): number {
 }
 
 function cacheKey(manga: Manga, width: number): string {
-  return `${manga.id}:${width}`;
+  // totalPages 参与键：往文件夹加图后页数变化 → 换键重取封面，点"刷新"即可生效
+  return `${manga.id}:${manga.totalPages ?? ''}:${width}`;
 }
 
 function coverRequestUrl(manga: Manga, width: number): string {
@@ -66,7 +67,8 @@ function schedule(task: () => void, low: boolean) {
 function pump() {
   while (activeCount < MAX_CONCURRENT) {
     const task = highQueue.shift() ?? lowQueue.shift();
-    if (!task) return activeCount++;
+    if (!task) return;
+    activeCount++;
     task();
   }
 }
@@ -167,6 +169,11 @@ export function prefetchCovers(mangas: Manga[], targetWidth: number): void {
   for (const manga of mangas) {
     loadCover(manga, targetWidth, 'low').catch(() => {});
   }
+}
+
+/** 放开失败黑名单，让下次加载重新请求（阅读库点"刷新"时调用） */
+export function resetFailedCovers(): void {
+  failedKeys.clear();
 }
 
 /** 供调试：当前缓存条数 */

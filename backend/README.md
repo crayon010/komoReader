@@ -59,11 +59,9 @@ src/main/java/com/example/springboot/
 
 ## 打包
 
-仓库根目录 `build-package.bat`：前端构建 → 静态资源拷入 `src/main/resources/static/` → fat jar → jpackage 生成内置 JRE 的 app-image，产物在 `package/MangaReader/`。
+仓库根目录 `build-package.bat`：前端构建 → 静态资源拷入 `src/main/resources/static/` → fat jar → jpackage 生成内置 JRE 的 app-image，产物在 `package/KomoReader/`。
 
 ## 待办
 
 - [ ] rar / 7z 支持（rar 需另引依赖）
-- [ ] 元数据落库（设计定稿于 [docs/DB_DESIGN.md](docs/DB_DESIGN.md)，未实施）
-- [ ] 多扫描目录并存（当前单一 root，互相覆盖）
 - [ ] mobi 渲染（当前仅识别条目）

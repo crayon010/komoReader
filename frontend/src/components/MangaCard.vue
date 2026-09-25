@@ -120,6 +120,10 @@ watch(
   background: #f5a623;
 }
 
+.manga-card-badge.is-gallery {
+  background: #67c23a;
+}
+
 .manga-card-cover img {
   width: 100%;
   height: 100%;

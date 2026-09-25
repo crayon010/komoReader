@@ -12,20 +12,20 @@ call mvnw.cmd -q package -DskipTests || exit /b 1
 if not exist jpackage-input mkdir jpackage-input
 copy /y target\springboot-0.0.1-SNAPSHOT.jar jpackage-input\ >nul || exit /b 1
 
-if exist package\MangaReader rmdir /s /q package\MangaReader
-jpackage --type app-image --name MangaReader --input jpackage-input --main-jar springboot-0.0.1-SNAPSHOT.jar --dest package --java-options "-Dfile.encoding=UTF-8" || exit /b 1
+if exist package\KomoReader rmdir /s /q package\KomoReader
+jpackage --type app-image --name KomoReader --input jpackage-input --main-jar springboot-0.0.1-SNAPSHOT.jar --dest package --java-options "-Dfile.encoding=UTF-8" || exit /b 1
 
 rem regenerate the launcher (rmdir above removed the previous copy)
 (
   echo @echo off
-  echo rem MangaReader launcher: start app, wait until ready, open browser
-  echo start "" "%%~dp0MangaReader.exe"
+  echo rem KomoReader launcher: start app, wait until ready, open browser
+  echo start "" "%%~dp0KomoReader.exe"
   echo :wait
   echo timeout /t 2 /nobreak ^>nul
   echo curl -s -o nul --max-time 2 http://localhost:1236/api/manga
   echo if errorlevel 1 goto wait
   echo start http://localhost:1236
-) > "package\MangaReader\start.bat"
+) > "package\KomoReader\start.bat"
 
 echo.
-echo Done: backend\package\MangaReader\MangaReader.exe ^(launcher: start.bat^)
+echo Done: backend\package\KomoReader\KomoReader.exe ^(launcher: start.bat^)

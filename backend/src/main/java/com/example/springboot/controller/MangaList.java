@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,23 +24,50 @@ public class MangaList {
     @Autowired
     private MangaService mangaService;
 
+    // root 缺省扫全部导入目录；传 root 只扫该目录（阅读库进入文件夹时用）
     @GetMapping("/manga")
-    public Result<List<MangaMeta>> manga() throws IOException {
-        return Result.success(mangaService.scan(null));
+    public Result<List<MangaMeta>> manga(@RequestParam(required = false) String root) throws IOException {
+        List<MangaMeta> list = root == null || root.isBlank()
+                ? mangaService.scanAll()
+                : mangaService.scanRoot(Paths.get(root));
+        return Result.success(list);
     }
 
-    // 导入文件夹，请求体 {path}，path 缺省扫默认目录；裸对象返回
+    // 导入 = 新增一个根目录并扫描，请求体 {path}；裸对象返回
     public record ImportReq(String path) {}
 
     @PostMapping("/manga/import")
     public Map<String, Object> importManga(@RequestBody(required = false) ImportReq req) {
-        String dir = req == null ? null : req.path();
+        if (req == null || req.path() == null || req.path().isBlank()) {
+            return Map.of("success", false, "message", "请填写文件夹路径");
+        }
         try {
-            int n = mangaService.scan(dir).size();
+            Path dir = mangaService.addRoot(req.path());
+            int n = mangaService.scanRoot(dir).size();
             return Map.of("success", true, "message", "共导入 " + n + " 部");
         } catch (IOException | InvalidPathException e) {
-            return Map.of("success", false, "message", "路径不存在");
+            return Map.of("success", false, "message", "路径不存在或不是文件夹");
         }
+    }
+
+    // 导入的根目录列表（阅读库第一级），itemCount 为该目录最近一次扫描的读物条目数
+    public record RootInfo(String name, String path, long itemCount) {}
+
+    @GetMapping("/roots")
+    public Result<List<RootInfo>> roots() {
+        return Result.success(mangaService.getRoots().stream()
+                .map(r -> new RootInfo(
+                        r.getFileName() != null ? r.getFileName().toString() : r.toString(),
+                        r.toString(),
+                        mangaService.getItemCount(r)))
+                .toList());
+    }
+
+    // 删除导入目录：不能再访问其内容，磁盘文件不删
+    @DeleteMapping("/roots")
+    public Map<String, Object> removeRoot(@RequestParam String path) {
+        mangaService.removeRoot(path);
+        return Map.of("success", true, "message", "已删除");
     }
 
     @GetMapping("/manga/{id}/cover")
@@ -55,7 +83,7 @@ public class MangaList {
             }
         } else {
             // 文件：原逻辑
-            Path zip = mangaService.getZipPath(id);
+            Path zip = mangaService.getMangaPath(id);
             List<String> images = ZipImageReader.listImages(zip);
             if (images != null && !images.isEmpty()) {
                 byte[] data = ZipImageReader.readImage(zip, images.getFirst());
@@ -82,7 +110,7 @@ public class MangaList {
             res.getOutputStream().write(data);
         } else {
             // 文件：原逻辑
-            Path file = mangaService.getZipPath(id);
+            Path file = mangaService.getMangaPath(id);
             String name = file.getFileName().toString().toLowerCase();
             res.setContentType(name.endsWith(".pdf") ? "application/pdf"
                     : name.endsWith(".txt") ? "text/plain; charset=utf-8"
@@ -105,7 +133,7 @@ public class MangaList {
             }
         } else {
             // 文件模式
-            Path zip = mangaService.getZipPath(id);
+            Path zip = mangaService.getMangaPath(id);
             List<String> images = ZipImageReader.listImages(zip);
             for (int i = 0; i < images.size(); i++) {
                 pages.add(Map.of("index", i));
@@ -126,7 +154,7 @@ public class MangaList {
             images = mangaService.listImagesInDirectory(mangaPath);
         } else {
             // 文件模式
-            Path zip = mangaService.getZipPath(id);
+            Path zip = mangaService.getMangaPath(id);
             images = ZipImageReader.listImages(zip);
         }
         byte[] data;

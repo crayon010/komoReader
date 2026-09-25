@@ -62,6 +62,17 @@ function next() {
   }
 }
 
+// 跳页输入框：回车提交
+const gotoText = ref('');
+
+function goToPage() {
+  const n = Number.parseInt(gotoText.value, 10);
+  if (total.value > 0 && Number.isFinite(n)) {
+    current.value = Math.min(total.value - 1, Math.max(0, n - 1));
+  }
+  gotoText.value = '';
+}
+
 let stageRaf = 0;
 
 /** 滚动模式没有页码概念，用滚动位置反推当前页；翻页模式由 current 直接驱动 */
@@ -252,8 +263,21 @@ onBeforeUnmount(() => {
 
     <div class="reader-controls">
       <button type="button" :disabled="current <= 0" @click="prev">上一页</button>
+      <input
+        v-if="readMode === 'page'"
+        v-model="gotoText"
+        class="reader-goto"
+        type="text"
+        inputmode="numeric"
+        placeholder="跳至页码"
+        @keydown.enter.prevent="goToPage"
+      />
       <button type="button" :disabled="current >= total - 1" @click="next">下一页</button>
     </div>
+
+    <button type="button" class="reader-first" title="回到第一页" @click="current = 0">
+      回到第一页
+    </button>
   </div>
 </template>
 
@@ -337,10 +361,48 @@ onBeforeUnmount(() => {
 .reader-controls {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 12px;
   padding: 12px;
   background: var(--bg-elevated);
   border-top: 1px solid var(--border);
+}
+
+.reader-goto {
+  width: 84px;
+  padding: 6px 8px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+
+.reader-goto:focus {
+  border-color: var(--accent);
+}
+
+.reader-first {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.reader-first:hover {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .state {

@@ -31,6 +31,23 @@ const rendition = shallowRef<Rendition | null>(null);
 const totalPages = ref<number | undefined>(undefined);
 const currentPage = ref<number | undefined>(undefined);
 
+// 回到第一页用：pdf iframe / txt 滚动容器 / epub 第一节 href
+const pdfFrame = ref<HTMLIFrameElement | null>(null);
+const txtEl = ref<HTMLElement | null>(null);
+const firstPageHref = ref('');
+
+/** 回到第一页：epub 跳到书首，txt 滚回顶部，pdf 重载到 #page=1（Chrome/Edge 查看器支持） */
+function goFirst() {
+  if (rendition.value) {
+    if (firstPageHref.value) rendition.value.display(firstPageHref.value);
+  } else if (props.type === 'pdf') {
+    const f = pdfFrame.value;
+    if (f) f.src = `${fileUrl.value}?t=${Date.now()}#page=1`;
+  } else {
+    txtEl.value?.scrollTo({ top: 0 });
+  }
+}
+
 onMounted(async () => {
   try {
     if (isTxt.value) {
@@ -63,6 +80,7 @@ onMounted(async () => {
       }
 
       await book.ready;
+      firstPageHref.value = book.spine.get(0)?.href ?? '';
 
       // 续读用 CFI：display(cfi) 不依赖 locations，能立刻出画面
       const cfi = loadCfi(props.mangaId);
@@ -126,8 +144,8 @@ function goLibrary() {
 
     <p v-if="error" class="book-state error">{{ error }}</p>
     <!-- PDF：直接用浏览器自带的 PDF 查看器 -->
-    <iframe v-else-if="type === 'pdf'" class="book-frame" :src="fileUrl" :title="mangaName" />
-    <div v-else-if="isTxt" class="book-text">
+    <iframe v-else-if="type === 'pdf'" ref="pdfFrame" class="book-frame" :src="fileUrl" :title="mangaName" />
+    <div v-else-if="isTxt" ref="txtEl" class="book-text">
       {{ txt || '加载中…' }}
     </div>
     <template v-else>
@@ -138,6 +156,8 @@ function goLibrary() {
         <button type="button" @click="rendition?.next()">下一页</button>
       </div>
     </template>
+
+    <button type="button" class="book-first" title="回到第一页" @click="goFirst">回到第一页</button>
   </div>
 </template>
 
@@ -226,6 +246,27 @@ function goLibrary() {
   padding: 12px;
   background: var(--bg-elevated);
   border-top: 1px solid var(--border);
+}
+
+.book-first {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.book-first:hover {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .book-state {

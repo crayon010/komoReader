@@ -43,7 +43,7 @@ cd frontend && npm install && npm run dev
 build-package.bat
 ```
 
-产物在 `backend\package\MangaReader\`（约 180MB，内置 JRE）：拷到任意 Windows 电脑，双击 `启动阅读器.bat`，自动打开 http://localhost:1236 。
+产物在 `backend\package\KomoReader\`（约 180MB，内置 JRE）：拷到任意 Windows 电脑，双击 `启动阅读器.bat`，自动打开 http://localhost:1236 。
 
 步骤：前端构建 → dist 拷入 `backend/src/main/resources/static/` → `mvnw package` → `jpackage` 生成 app-image。`stop-port.bat` 用于释放被占用的 1236 端口。
 
@@ -54,10 +54,8 @@ backend/    Spring Boot 服务（扫描、图片流、打包脚本入口）
 frontend/   Vue 3 前端（阅读库 / 阅读器 / 设置）
 ```
 
-接口契约见 `backend/API.md`，数据库设计（未实施）见 `backend/docs/DB_DESIGN.md`。
-
 ## 已知限制
 
 - 压缩包仅支持 zip / cbz（rar / 7z 需另引依赖，未接入）
-- 同一时间只扫描一个目录；mobi 仅被识别，暂无可读渲染
-- 元数据落库（MySQL）设计已定稿未实施，见 `backend/docs/DB_DESIGN.md`
+- mobi 仅被识别，暂无可读渲染
+

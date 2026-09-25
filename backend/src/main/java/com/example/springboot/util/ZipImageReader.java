@@ -15,7 +15,7 @@ public class ZipImageReader {
         try (ZipFile zip = ZipFile.builder().setFile(zipPath.toFile()).get()) {
             return zip.stream()
                     .map(ZipArchiveEntry::getName)
-                    .filter(name -> name.matches(".*\\.(jpg|jpeg|png|webp)$"))
+                    .filter(name -> name.toLowerCase().matches(".*\\.(jpg|jpeg|png|webp)$"))
                     .sorted()
                     .collect(Collectors.toList());
         }

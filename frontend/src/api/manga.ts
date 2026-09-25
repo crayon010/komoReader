@@ -1,9 +1,23 @@
-import type { ApiResponse, Manga, MangaPage } from '@/types/manga';
+import type { ApiResponse, Manga, MangaPage, MangaRoot } from '@/types/manga';
 import { request } from './http';
 
-/** 获取阅读库列表 */
-export function fetchMangaList(): Promise<ApiResponse<Manga[]>> {
-  return request<ApiResponse<Manga[]>>('/api/manga');
+/** 获取导入的文件夹列表（不扫描内容） */
+export function fetchRoots(): Promise<ApiResponse<MangaRoot[]>> {
+  return request<ApiResponse<MangaRoot[]>>('/api/roots');
+}
+
+/** 删除导入的文件夹：不再展示/访问，磁盘文件不删 */
+export function removeRoot(path: string): Promise<ImportResult> {
+  return request<ImportResult>(`/api/roots?path=${encodeURIComponent(path)}`, {
+    method: 'DELETE',
+  });
+}
+
+/** 获取某导入文件夹内的条目；不传 root 则扫全部 */
+export function fetchMangaList(root?: string): Promise<ApiResponse<Manga[]>> {
+  return request<ApiResponse<Manga[]>>(
+    root ? `/api/manga?root=${encodeURIComponent(root)}` : '/api/manga',
+  );
 }
 
 /** 获取某部阅读的页列表 */

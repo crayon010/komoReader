@@ -22,7 +22,10 @@ function isActive(target: 'library' | 'settings') {
 
 <template>
   <header class="app-header">
-    <a href="/" class="app-logo" @click.prevent="router.push('/')">漫画/小说/PDF阅读器</a>
+    <button class="title-button" data-text="Awesome" @click.prevent="router.push('/')">
+      <span class="actual-text">&nbsp;komoReader&nbsp;</span>
+      <span aria-hidden="true" class="hover-text">&nbsp;komoReader&nbsp;</span>
+    </button>
     <nav class="app-nav">
       <a
         href="/"
@@ -51,6 +54,46 @@ function isActive(target: 'library' | 'settings') {
 </template>
 
 <style scoped>
+.title-button {
+  margin: 0;
+  height: auto;
+  background: transparent;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.title-button {
+  --border-right: 6px;
+  --text-stroke-color: rgba(255, 255, 255, 0.6);
+  --animation-color: #59c7ee;
+  --fs-size: 16px;
+  letter-spacing: 3px;
+  text-decoration: none;
+  font-size: var(--fs-size);
+  font-family: 'Arial';
+  position: relative;
+  -webkit-text-stroke: 1px var(--text-stroke-color);
+}
+
+.hover-text {
+  position: absolute;
+  box-sizing: border-box;
+  content: attr(data-text);
+  color: var(--animation-color);
+  width: 0%;
+  inset: 0;
+  border-right: var(--border-right) solid var(--animation-color);
+  overflow: hidden;
+  transition: 0.5s;
+  -webkit-text-stroke: 1px var(--animation-color);
+}
+
+.title-button:hover .hover-text {
+  width: 100%;
+  filter: drop-shadow(0 0 23px var(--animation-color));
+}
+
 .app-header {
   display: flex;
   align-items: center;
