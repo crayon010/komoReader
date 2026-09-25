@@ -1,8 +1,10 @@
 # KomoReader
 
 本地漫画 / 小说 / PDF 阅读器。前端 Vue 3 + Vite，后端 Spring Boot，书籍直接读本地文件夹，无需数据库、无需解压，导入即可看。
-<img width="1594" height="1391" alt="image" src="https://github.com/user-attachments/assets/fb475f86-5ad1-4c67-a65c-6996e8b560d8" />
-
+<img width="1496" height="1022" alt="image" src="https://github.com/user-attachments/assets/73aa2bcf-82c9-4729-ac64-21949b6d0e9a" />
+<img width="1496" height="1022" alt="image" src="https://github.com/user-attachments/assets/cf0e1a78-5755-485a-8fd3-56c2edbafa5e" />
+<img width="1496" height="1022" alt="image" src="https://github.com/user-attachments/assets/5193af15-de37-4112-bf89-a20a6c7736fc" />
+<img width="1496" height="1022" alt="image" src="https://github.com/user-attachments/assets/2bf86400-bb0b-4b6c-82e9-3bea7735dd58" />
 
 ## 功能
 
