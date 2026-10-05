@@ -1,6 +1,6 @@
-import { computed, reactive } from 'vue';
+import { computed, reactive } from 'vue'
 
-import type { Manga } from '@/types/manga';
+import type { Manga } from '@/types/manga'
 
 /**
  * 阅读器标签页状态（模块级单例，无需 pinia）。
@@ -11,79 +11,79 @@ import type { Manga } from '@/types/manga';
  * - 阅读库/设置仍走路由，路由变化由 App.vue 监听后同步到 active。
  */
 
-export const MAX_READER_TABS = 5;
+export const MAX_READER_TABS = 5
 
 export interface ReaderTab {
-  mangaId: string;
-  mangaName: string;
-  totalPages: number;
+  mangaId: string
+  mangaName: string
+  totalPages: number
   /** manga / novel / pdf；novel|pdf 由 BookView 展示，其余走图片阅读器 */
-  type?: string;
+  type?: string
   /** 当前阅读进度（百分比 0-1） */
-  currentProgress?: number;
+  currentProgress?: number
 }
 
-export type ActiveViewType = 'library' | 'reader' | 'settings';
+export type ActiveViewType = 'library' | 'reader' | 'settings'
 
 const state = reactive<{
-  readerTabs: ReaderTab[];
-  activeType: ActiveViewType;
-  activeMangaId: string;
+  readerTabs: ReaderTab[]
+  activeType: ActiveViewType
+  activeMangaId: string
 }>({
   readerTabs: [],
   activeType: 'library',
   activeMangaId: '',
-});
+})
 
-const activeMangaId = computed(() => (state.activeType === 'reader' ? state.activeMangaId : ''));
+const activeMangaId = computed(() => (state.activeType === 'reader' ? state.activeMangaId : ''))
 
-export { activeMangaId, state as tabsState };
+export { activeMangaId, state as tabsState }
 
 export function activateLibrary() {
-  state.activeType = 'library';
-  state.activeMangaId = '';
+  state.activeType = 'library'
+  state.activeMangaId = ''
 }
 
 export function activateSettings() {
-  state.activeType = 'settings';
-  state.activeMangaId = '';
+  state.activeType = 'settings'
+  state.activeMangaId = ''
 }
 
 /** 激活已打开的 tab，并把它移到末尾标记为最近使用 */
 export function activateReaderTab(mangaId: string) {
-  const index = state.readerTabs.findIndex((tab) => tab.mangaId === mangaId);
-  if (index === -1) return;
-  const [tab] = state.readerTabs.splice(index, 1);
-  state.readerTabs.push(tab);
-  state.activeType = 'reader';
-  state.activeMangaId = mangaId;
+  const index = state.readerTabs.findIndex((tab) => tab.mangaId === mangaId)
+  if (index === -1) return
+  const [tab] = state.readerTabs.splice(index, 1)
+  state.readerTabs.push(tab)
+  state.activeType = 'reader'
+  state.activeMangaId = mangaId
 }
 
 /** 打开（或聚焦）一个阅读 tab；满了就淘汰最久未使用的 */
 export function openReaderTab(manga: Manga) {
   if (state.readerTabs.some((tab) => tab.mangaId === manga.id)) {
-    activateReaderTab(manga.id);
-    return;
+    activateReaderTab(manga.id)
+    return
   }
   if (state.readerTabs.length >= MAX_READER_TABS) {
-    state.readerTabs.shift();
+    state.readerTabs.shift()
   }
   state.readerTabs.push({
     mangaId: manga.id,
     mangaName: manga.name,
     totalPages: manga.totalPages,
     type: manga.type,
-  });
-  state.activeType = 'reader';
-  state.activeMangaId = manga.id;
+  })
+  state.activeType = 'reader'
+  state.activeMangaId = manga.id
 }
 
 export function closeReaderTab(mangaId: string) {
-  const index = state.readerTabs.findIndex((tab) => tab.mangaId === mangaId);
-  if (index === -1) return;
-  state.readerTabs.splice(index, 1);
+  const index = state.readerTabs.findIndex((tab) => tab.mangaId === mangaId)
+  if (index === -1) return
+  state.readerTabs.splice(index, 1)
   if (state.activeType === 'reader' && state.activeMangaId === mangaId) {
-    activateLibrary();
+    activateLibrary()
   }
 }
 
@@ -93,25 +93,25 @@ export function closeReaderTab(mangaId: string) {
  * progress 传 undefined 表示当前位置还无法换算成百分比（locations 未生成），此时只存 cfi。
  */
 export function saveProgress(mangaId: string, progress?: number, cfi?: string) {
-  const tab = state.readerTabs.find((t) => t.mangaId === mangaId);
+  const tab = state.readerTabs.find((t) => t.mangaId === mangaId)
   if (progress !== undefined) {
     if (tab) {
-      tab.currentProgress = progress;
+      tab.currentProgress = progress
     }
-    localStorage.setItem(`tab_progress_${mangaId}`, progress.toString());
+    localStorage.setItem(`tab_progress_${mangaId}`, progress.toString())
   }
   if (cfi) {
-    localStorage.setItem(`tab_cfi_${mangaId}`, cfi);
+    localStorage.setItem(`tab_cfi_${mangaId}`, cfi)
   }
 }
 
 /** 从 localStorage 加载阅读进度 */
 export function loadProgress(mangaId: string): number | null {
-  const saved = localStorage.getItem(`tab_progress_${mangaId}`);
-  return saved ? parseFloat(saved) : null;
+  const saved = localStorage.getItem(`tab_progress_${mangaId}`)
+  return saved ? parseFloat(saved) : null
 }
 
 /** 加载 epub 续读位置（CFI） */
 export function loadCfi(mangaId: string): string | null {
-  return localStorage.getItem(`tab_cfi_${mangaId}`);
+  return localStorage.getItem(`tab_cfi_${mangaId}`)
 }

@@ -1,7 +1,7 @@
 # 数据库持久化设计（待实施）
 
 > 状态：设计定稿，**尚未实施**。作为后续开发待办，实施前先读完第 5、6 节。
-> 依赖：MySQL `manga_reader` 库 + MyBatis-Plus（依赖已在 `pom.xml`）。
+> 依赖：MySQL `manga_reader` 库 + MyBatis-Plus（数据库相关依赖已从 `pom.xml` 移除，实施时先加回）。
 
 ## 1. 核心原则
 
@@ -69,7 +69,7 @@ CREATE TABLE manga (
 
 - **folder : manga = 1 : N**：`manga.folder_id` 做**逻辑外键**——只建索引（`idx_folder`），不建物理 FK 约束（MyBatis-Plus 生态惯例，避免级联与迁移麻烦）；删除 folder 时由 service 层先处理 manga。
 - **manga : page**：不建关系，运行时从压缩包派生。
-- **user : manga（将来）**：登录体系（`UserLoginResponseDTO` 已有 token/roleType 设计意图）上线后再加中间表，现在**不建表、不预留字段**，唯一前提是 `manga.id` 稳定：
+- **user : manga（将来）**：登录体系上线后再加中间表，现在**不建表、不预留字段**，唯一前提是 `manga.id` 稳定：
   - `user_manga_read(user_id, manga_id, last_page, updated_at)`，联合主键，存阅读进度；
   - 收藏与进度分开时再加 `user_favorite`。
 
@@ -99,16 +99,15 @@ CREATE TABLE manga (
 ## 6. 落地注意点
 
 1. **实体拆分**：现 `entity/Manga` 是接口 VO（含 `coverUrl`），入库时新建 `MangaFolderPO` / `MangaPO`（带 `@TableName` 等注解）映射表；VO 结构保持不变。PO→VO 时 `id` 转 String——前端 `Manga.id` 是 string，Long 序列化成数字在大 ID 下有 JS 精度问题。
-2. **依赖收敛**：`spring-boot-starter-data-jdbc` 与 MyBatis-Plus starter 并存，启用前二选一（保留 MyBatis-Plus，摘掉 data-jdbc 及其 test starter）。
-3. **兼容性验证**：MyBatis-Plus 3.5.7 的 boot3-starter 与 Spring Boot 4.1 的自动装配需实测；起不来就升级 MyBatis-Plus 或退回 `mybatis-spring` 手动配置。
-4. **修正数据源笔误**：`application.yml` 中 `serverTimezone-UTC` 应为 `serverTimezone=UTC`，启用库之前必须改。
-5. **建表方式**：初期直接手工执行第 2 节 SQL；表结构多版本后再考虑 Flyway/Liquibase，现在不引入。
+2. **依赖加回**：数据库相关 starter（MyBatis-Plus、mysql-connector-j）已从 `pom.xml` 移除，启用时加回并实测 MyBatis-Plus 3.5.7 与 Spring Boot 4.1 的自动装配；起不来就升级 MyBatis-Plus 或退回 `mybatis-spring` 手动配置。
+3. **修正数据源笔误**：`application.yml` 现无任何数据源配置，加回时注意 `serverTimezone=UTC`（等号，别写成连字符）。
+4. **建表方式**：初期直接手工执行第 2 节 SQL；表结构多版本后再考虑 Flyway/Liquibase，现在不引入。
 
 ## 7. 实施待办清单
 
-- [ ] 修正 `application.yml` 数据源笔误（`serverTimezone=UTC`）
-- [ ] 摘除 `spring-boot-starter-data-jdbc`（含 test），验证 MyBatis-Plus 3.5.7 + Boot 4.1 自动装配
-- [ ] 在 `manga_reader` 库执行第 2 节建表 SQL
+- [ ] 在 `pom.xml` 加回 MyBatis-Plus starter 与 mysql-connector-j，验证与 Boot 4.1 的自动装配
+- [ ] 在 `application.yml` 配置数据源（`manga_reader` 库，注意 `serverTimezone=UTC`）
+- [ ] 执行第 2 节建表 SQL
 - [ ] 新建 `MangaFolderPO` / `MangaPO` 与对应 Mapper
 - [ ] `MangaService` 实现导入流程（第 5 节：upsert + diff + last_scan_at）
 - [ ] `/api/manga` 切换为查库（PO→VO，`id` 转 String，默认过滤 `status != 0`）

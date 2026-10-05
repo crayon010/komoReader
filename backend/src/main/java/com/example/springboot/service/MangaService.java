@@ -108,35 +108,23 @@ public class MangaService {
         cache.values().removeIf(m -> Paths.get(m.getPath()).startsWith(root));
         List<MangaMeta> list = new ArrayList<>();
 
-        // 扫描文件和文件夹
         try (Stream<Path> stream = Files.list(root)) {
             stream.forEach(p -> {
                 try {
                     if (Files.isDirectory(p)) {
-                        // 子文件夹：检查是否有图片
                         if (hasImages(p)) {
-                            String folderName = p.getFileName().toString();
-                            CacheEntry e = disk.get(folderName);
+                            String name = p.getFileName().toString();
+                            CacheEntry e = disk.get(name);
                             long mtime = Files.getLastModifiedTime(p).toMillis();
                             long size = getDirectorySize(p);
                             if (e == null || e.lastModified() != mtime || e.size() != size) {
-                                Integer totalPages = countImagesInDirectory(p);
-                                e = new CacheEntry(mtime, size, totalPages);
+                                e = new CacheEntry(mtime, size, countImagesInDirectory(p));
                             }
-                            fresh.put(folderName, e);
-
-                            MangaMeta meta = new MangaMeta();
-                            meta.setId(getFixedHash(root + "/" + folderName));
-                            meta.setName(folderName);
-                            meta.setTotalPages(e.totalPages());
+                            fresh.put(name, e);
                             // 含图片的文件夹 = 图库
-                            meta.setType("gallery");
-                            meta.setPath(p.toString());
-                            cache.put(meta.getId(), meta);
-                            list.add(meta);
+                            list.add(register(root, p, name, "gallery", e));
                         }
                     } else {
-                        // 文件：检查是否支持
                         String fileName = p.getFileName().toString().toLowerCase();
                         if (fileName.endsWith(".zip") || fileName.endsWith(".cbz")
                                 || fileName.endsWith(".mobi") || fileName.endsWith(".epub")
@@ -148,23 +136,15 @@ public class MangaService {
                             long mtime = Files.getLastModifiedTime(p).toMillis();
                             long size = Files.size(p);
                             if (e == null || e.lastModified() != mtime || e.size() != size) {
-                                Integer totalPages = null;
                                 // 只有漫画数图片；mobi/epub/txt/pdf 不拆包统计
-                                if ("manga".equals(type) && !fileName.toLowerCase().endsWith(".mobi")) {
+                                Integer totalPages = null;
+                                if ("manga".equals(type) && !fileName.endsWith(".mobi")) {
                                     totalPages = ZipImageReader.listImages(p).size();
                                 }
                                 e = new CacheEntry(mtime, size, totalPages);
                             }
                             fresh.put(fileName, e);
-
-                            MangaMeta meta = new MangaMeta();
-                            meta.setId(getFixedHash(root + "/" + fileName));
-                            meta.setName(fileName);
-                            meta.setTotalPages(e.totalPages());
-                            meta.setType(type);
-                            meta.setPath(p.toString());
-                            cache.put(meta.getId(), meta);
-                            list.add(meta);
+                            list.add(register(root, p, fileName, type, e));
                         }
                     }
                 } catch (IOException ex) {
@@ -180,24 +160,29 @@ public class MangaService {
         return list;
     }
 
-    // 检查目录是否有图片
+    /** 组装条目并放进缓存 */
+    private MangaMeta register(Path root, Path p, String name, String type, CacheEntry e)
+            throws NoSuchAlgorithmException {
+        MangaMeta meta = new MangaMeta();
+        meta.setId(getFixedHash(root + "/" + name));
+        meta.setName(name);
+        meta.setTotalPages(e.totalPages());
+        meta.setType(type);
+        meta.setPath(p.toString());
+        cache.put(meta.getId(), meta);
+        return meta;
+    }
+
     private boolean hasImages(Path dir) throws IOException {
         try (Stream<Path> stream = Files.list(dir)) {
-            return stream.anyMatch(p -> {
-                String name = p.getFileName().toString().toLowerCase();
-                return name.matches(".*\\.(jpg|jpeg|png|webp)$");
-            });
+            return stream.anyMatch(p -> ZipImageReader.isImageName(p.getFileName().toString()));
         }
     }
 
-    // 统计目录中的图片数量
     private int countImagesInDirectory(Path dir) throws IOException {
         try (Stream<Path> stream = Files.list(dir)) {
             return (int) stream
-                .filter(p -> {
-                    String name = p.getFileName().toString().toLowerCase();
-                    return name.matches(".*\\.(jpg|jpeg|png|webp)$");
-                })
+                .filter(p -> ZipImageReader.isImageName(p.getFileName().toString()))
                 .count();
         }
     }
@@ -278,22 +263,16 @@ public class MangaService {
 
     private static boolean isZipFile(Path p) {
         try (ZipFile zf = ZipFile.builder().setFile(p.toFile()).get()) {
-            // 能成功打开即视为 ZIP
             return true;
         } catch (Exception e) {
             return false;
         }
     }
 
-    // 根据名字定义哈希值作为id
-    public static String getFixedHash(String fileName) throws NoSuchAlgorithmException {
+    private static String getFixedHash(String fileName) throws NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hashBytes = digest.digest(fileName.getBytes(StandardCharsets.UTF_8));
         return HexFormat.of().formatHex(hashBytes);
-    }
-
-    public MangaMeta getMeta(String id) {
-        return cache.get(id);
     }
 
     // 条目路径直接取扫描时记录的绝对路径，天然支持多个根目录
@@ -305,14 +284,17 @@ public class MangaService {
         return Paths.get(meta.getPath());
     }
 
-    // List images in directory
+    /** 条目的图片列表：文件夹直接列，zip/cbz/epub 等文件拆包列 */
+    public List<String> listImages(Path mangaPath) throws IOException {
+        return Files.isDirectory(mangaPath)
+                ? listImagesInDirectory(mangaPath)
+                : ZipImageReader.listImages(mangaPath);
+    }
+
     public List<String> listImagesInDirectory(Path dir) throws IOException {
         try (Stream<Path> stream = Files.list(dir)) {
             return stream
-                .filter(p -> {
-                    String name = p.getFileName().toString().toLowerCase();
-                    return name.matches(".*\\.(jpg|jpeg|png|webp)$");
-                })
+                .filter(p -> ZipImageReader.isImageName(p.getFileName().toString()))
                 .map(Path::getFileName)
                 .map(Path::toString)
                 .sorted()
@@ -320,16 +302,9 @@ public class MangaService {
         }
     }
 
-    // Read image from directory
-    public byte[] readImage(Path dir, String imageName) throws IOException {
-        Path imagePath = dir.resolve(imageName);
-        return Files.readAllBytes(imagePath);
-    }
-
-    // Get content type for image
-    public String contentType(String imageName) {
-        return imageName.toLowerCase().endsWith(".png") ? "image/png"
-                : imageName.toLowerCase().endsWith(".webp") ? "image/webp"
-                : "image/jpeg";
+    public byte[] readImage(Path mangaPath, String imageName) throws IOException {
+        return Files.isDirectory(mangaPath)
+                ? Files.readAllBytes(mangaPath.resolve(imageName))
+                : ZipImageReader.readImage(mangaPath, imageName);
     }
 }

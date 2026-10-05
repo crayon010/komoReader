@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-import { activeMangaId, tabsState } from '@/stores/tabs';
+import { activeMangaId, tabsState } from '@/stores/tabs'
 
-const router = useRouter();
+const router = useRouter()
 
-const isDark = ref((document.documentElement.dataset.theme ?? 'dark') === 'dark');
+const isDark = ref((document.documentElement.dataset.theme ?? 'dark') === 'dark')
 
 function toggleTheme() {
-  isDark.value = !isDark.value;
-  document.documentElement.dataset.theme = isDark.value ? 'dark' : 'light';
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+  isDark.value = !isDark.value
+  document.documentElement.dataset.theme = isDark.value ? 'dark' : 'light'
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
 // 激活态由 tab 状态驱动：阅读 tab 打开时「阅读库」导航不再误亮
 function isActive(target: 'library' | 'settings') {
-  return tabsState.activeType === target && activeMangaId.value === '';
+  return tabsState.activeType === target && activeMangaId.value === ''
 }
 </script>
 
@@ -102,11 +102,6 @@ function isActive(target: 'library' | 'settings') {
   height: 52px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
-}
-
-.app-logo {
-  font-size: 16px;
-  font-weight: 600;
 }
 
 .app-nav {

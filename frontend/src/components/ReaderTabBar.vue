@@ -1,21 +1,14 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-
 import {
   MAX_READER_TABS,
   activeMangaId,
   closeReaderTab,
   activateReaderTab,
   tabsState,
-  activateLibrary,
-} from '@/stores/tabs';
+} from '@/stores/tabs'
+import { useGoLibrary } from '@/composables/useGoLibrary'
 
-const router = useRouter();
-
-function goLibrary() {
-  activateLibrary();
-  router.push('/');
-}
+const goLibrary = useGoLibrary()
 </script>
 
 <template>

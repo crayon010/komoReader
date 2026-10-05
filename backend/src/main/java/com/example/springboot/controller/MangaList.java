@@ -73,23 +73,20 @@ public class MangaList {
     @GetMapping("/manga/{id}/cover")
     public void mangaCover(@PathVariable String id, HttpServletResponse res) throws IOException {
         Path mangaPath = mangaService.getMangaPath(id);
-        if (Files.isDirectory(mangaPath)) {
-            // 文件夹：返回第一张图片作为封面
-            List<String> images = mangaService.listImagesInDirectory(mangaPath);
-            if (!images.isEmpty()) {
-                byte[] data = mangaService.readImage(mangaPath, images.getFirst());
-                res.setContentType(mangaService.contentType(images.getFirst()));
-                res.getOutputStream().write(data);
-            }
-        } else {
-            // 文件：原逻辑
-            Path zip = mangaService.getMangaPath(id);
-            List<String> images = ZipImageReader.listImages(zip);
-            if (images != null && !images.isEmpty()) {
-                byte[] data = ZipImageReader.readImage(zip, images.getFirst());
-                res.setContentType(ZipImageReader.contentType(images.getFirst()));
-                res.getOutputStream().write(data);
-            }
+        // 封面：文件夹取第一张图；epub 按包文档声明取，声明缺失/解析失败回退第一张；
+        // zip/cbz 这类纯图片包没有封面声明，直接第一张
+        String coverEntry = null;
+        if (!Files.isDirectory(mangaPath)
+                && mangaPath.getFileName().toString().toLowerCase().endsWith(".epub")) {
+            coverEntry = ZipImageReader.findCoverEntry(mangaPath);
+        }
+        if (coverEntry == null) {
+            List<String> images = mangaService.listImages(mangaPath);
+            coverEntry = images.isEmpty() ? null : images.getFirst();
+        }
+        if (coverEntry != null) {
+            res.setContentType(ZipImageReader.contentType(coverEntry));
+            res.getOutputStream().write(mangaService.readImage(mangaPath, coverEntry));
         }
     }
 
@@ -99,45 +96,32 @@ public class MangaList {
         Path mangaPath = mangaService.getMangaPath(id);
         if (Files.isDirectory(mangaPath)) {
             // 文件夹：返回第一张图片
-            List<String> images = mangaService.listImagesInDirectory(mangaPath);
+            List<String> images = mangaService.listImages(mangaPath);
             if (images.isEmpty()) {
                 res.sendError(404, "No images found in directory");
                 return;
             }
             byte[] data = mangaService.readImage(mangaPath, images.getFirst());
-            res.setContentType(mangaService.contentType(images.getFirst()));
+            res.setContentType(ZipImageReader.contentType(images.getFirst()));
             res.setContentLengthLong(data.length);
             res.getOutputStream().write(data);
         } else {
-            // 文件：原逻辑
-            Path file = mangaService.getMangaPath(id);
-            String name = file.getFileName().toString().toLowerCase();
+            String name = mangaPath.getFileName().toString().toLowerCase();
             res.setContentType(name.endsWith(".pdf") ? "application/pdf"
                     : name.endsWith(".txt") ? "text/plain; charset=utf-8"
                     : "application/epub+zip");
-            res.setContentLengthLong(Files.size(file));
-            Files.copy(file, res.getOutputStream());
+            res.setContentLengthLong(Files.size(mangaPath));
+            Files.copy(mangaPath, res.getOutputStream());
         }
     }
 
     // 页目录：裸数组 [{"index":0},...]
     @GetMapping("/manga/{id}/pages")
     public List<Map<String, Integer>> mangaPages(@PathVariable String id) throws IOException {
-        Path mangaPath = mangaService.getMangaPath(id);
-        List<Map<String, Integer>> pages = new ArrayList<>();
-        if (Files.isDirectory(mangaPath)) {
-            // 文件夹模式
-            List<String> images = mangaService.listImagesInDirectory(mangaPath);
-            for (int i = 0; i < images.size(); i++) {
-                pages.add(Map.of("index", i));
-            }
-        } else {
-            // 文件模式
-            Path zip = mangaService.getMangaPath(id);
-            List<String> images = ZipImageReader.listImages(zip);
-            for (int i = 0; i < images.size(); i++) {
-                pages.add(Map.of("index", i));
-            }
+        int n = mangaService.listImages(mangaService.getMangaPath(id)).size();
+        List<Map<String, Integer>> pages = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            pages.add(Map.of("index", i));
         }
         return pages;
     }
@@ -148,28 +132,8 @@ public class MangaList {
                           @RequestParam int index,
                           HttpServletResponse res) throws IOException {
         Path mangaPath = mangaService.getMangaPath(id);
-        List<String> images;
-        if (Files.isDirectory(mangaPath)) {
-            // 文件夹模式
-            images = mangaService.listImagesInDirectory(mangaPath);
-        } else {
-            // 文件模式
-            Path zip = mangaService.getMangaPath(id);
-            images = ZipImageReader.listImages(zip);
-        }
-        byte[] data;
-        String contentType;
-        if (Files.isDirectory(mangaPath)) {
-            // 文件夹模式
-            data = mangaService.readImage(mangaPath, images.get(index));
-            contentType = mangaService.contentType(images.get(index));
-        } else {
-            // 文件模式
-            data = ZipImageReader.readImage(mangaPath, images.get(index));
-            contentType = ZipImageReader.contentType(images.get(index));
-        }
-        res.setContentType(contentType);
-        res.getOutputStream().write(data);
+        String name = mangaService.listImages(mangaPath).get(index);
+        res.setContentType(ZipImageReader.contentType(name));
+        res.getOutputStream().write(mangaService.readImage(mangaPath, name));
     }
 }
-

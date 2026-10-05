@@ -17,12 +17,13 @@ JSON 接口默认使用统一包装 `Result`（前端 `ApiResponse`）：
 { "code": 200, "message": "操作成功", "data": "…" }
 ```
 
-**两个例外**（前端按裸格式解析，不走 `Result` 包装）：
+**例外**（前端按裸格式解析，不走 `Result` 包装）：
 
 | 接口 | 前端解析格式 |
 | --- | --- |
 | `GET /api/manga/{id}/pages` | 裸数组 `[{index}, …]` |
 | `POST /api/manga/import` | 裸对象 `{success, message}` |
+| `DELETE /api/roots` | 裸对象 `{success, message}` |
 
 ### 1.2 业务错误码（`Result.code`）
 
@@ -30,10 +31,7 @@ JSON 接口默认使用统一包装 `Result`（前端 `ApiResponse`）：
 | --- | --- | --- |
 | 200 | 操作成功 | — |
 | 400 | 参数错误 | 参数格式非法 |
-| 401 | 缺少必要参数（业务码，与 HTTP 401 无关） | 缺 `path`、缺 `index` 等 |
-| 500 | 操作失败 | 服务器异常（全局异常处理器兜底也返回它） |
-| 501 | 文件操作失败 | zip 读取异常等 IO 错误 |
-| 502 | 文件不存在（业务码，与 HTTP 502 无关） | 路径不存在、压缩包丢失 |
+| 500 | 操作失败 | 服务器异常（全局异常处理器兜底也返回它，IO 异常返回"文件读取失败：…"） |
 
 注意：全局异常处理器返回 `Result` JSON 时 **HTTP 状态码仍为 200**，前端以 body 中的 `code` 判断成败。
 
@@ -59,7 +57,7 @@ GET /api/manga        ✅
   "code": 200,
   "message": "操作成功",
   "data": [
-    { "id": "3a7b…", "name": "comic.zip", "coverUrl": null, "totalPages": 120, "path": "D:/manga/comic.zip", "type": "manga" }
+    { "id": "3a7b…", "name": "comic.zip", "totalPages": 120, "path": "D:/manga/comic.zip", "type": "manga" }
   ]
 }
 ```
@@ -68,10 +66,9 @@ GET /api/manga        ✅
 | --- | --- | --- |
 | id | string | 文件 / 文件夹名的 SHA-256 hex，名称不变则稳定；前端用它拼 cover/pages/page/file URL |
 | name | string | 展示名（文件 / 文件夹名） |
-| coverUrl | string\|null | 为空时前端按 `/api/manga/{id}/cover` 推导 |
 | totalPages | number\|null | 图片总数；novel / pdf / mobi 为 `null` |
 | path | string | 后端本地路径，前端仅展示 |
-| type | string | `manga`（zip/cbz/图片文件夹）/ `novel`（epub、txt）/ `pdf` |
+| type | string | `manga`（zip/cbz）/ `gallery`（含图片的文件夹）/ `novel`（epub、txt）/ `pdf` |
 
 扫描结果按 mtime+size 缓存在目录下 `.manga-cache.properties`，未变化不重复拆包。
 
@@ -83,7 +80,8 @@ GET /api/manga/{id}/cover        ✅
 
 - 成功：`200` + 图片二进制（`image/jpeg` / `image/png` / `image/webp`）
 - 失败：`404`（id 不存在或压缩包丢失）/ `500`
-- 压缩包：取排序第一的图片条目；图片文件夹：取目录内排序第一张
+- epub：优先按包文档声明的封面（EPUB3 `properties="cover-image"` / EPUB2 `meta[name=cover]`），声明缺失或解析失败回退第一张
+- 其余压缩包：取排序第一的图片条目；图片文件夹：取目录内排序第一张
 
 ### 2.3 获取页目录
 
@@ -116,7 +114,7 @@ GET /api/manga/{id}/page?index=N        ✅
 POST /api/manga/import        ✅
 ```
 
-请求体（可省略，body 缺省或 `path` 为空则沿用上次目录，首次默认 `D:/manga`）：
+请求体（`path` 必填，指向后端可访问的已存在文件夹）：
 
 ```json
 { "path": "D:/manga" }
@@ -126,14 +124,28 @@ POST /api/manga/import        ✅
 
 ```json
 { "success": true, "message": "共导入 3 部" }
-{ "success": false, "message": "路径不存在" }
+{ "success": false, "message": "路径不存在或不是文件夹" }
 ```
 
 行为：
 
+- 导入 = 新增一个根目录并持久化到 `~/.komoreader-roots.txt`（重复导入同一文件夹只记一次），随后立即全量重扫该目录
 - 识别 `.zip` / `.cbz`（含伪装后缀，试开成功即视为 zip）、`.epub` / `.txt`（novel）、`.pdf`、`.mobi`（仅识别，暂无可读渲染）；含图片的子文件夹记为一部漫画
 - 不递归子目录深处，只扫根目录直下
-- 每次导入全量重扫该目录，结果幂等（同名覆盖）
+
+### 2.6 导入目录列表
+
+```
+GET /api/roots        ✅
+```
+
+响应 `Result<RootInfo[]>`，`RootInfo = { name, path, itemCount }`；`itemCount` 为该目录最近一次扫描的条目数（阅读库第一级卡片展示用）。
+
+```
+DELETE /api/roots?path=…        ✅
+```
+
+裸对象响应 `{success, message}`：从导入列表移除（不再访问其内容），磁盘文件不删。
 
 ### 2.6 获取书籍原始文件流
 
@@ -144,23 +156,15 @@ GET /api/manga/{id}/file        ✅
 - txt → `text/plain; charset=utf-8`；pdf → `application/pdf`；其余按 `application/epub+zip`
 - 前端用法：txt 直接 fetch 解码（UTF-8 失败退回 GBK），epub 交给 epub.js（需显式 `openAs: 'epub'`，因路径无扩展名），pdf 用 iframe
 
-## 3. 联调测试接口
-
-| 方法 | 路径 | 响应 | 说明 |
-| --- | --- | --- | --- |
-| GET | `/api/test` | `"hello world"`（纯文本） | 冒烟测试，确认服务存活 |
-
-## 4. 已知限制
+## 3. 已知限制
 
 - 压缩包仅 zip / cbz；rar / 7z 未接入
-- 单一当前扫描目录，多次导入不同目录会互相覆盖
 - mobi 仅识别，无渲染
 - 元数据未落库（设计见 [docs/DB_DESIGN.md](docs/DB_DESIGN.md)）
 
-## 5. 快速自测（服务启动后）
+## 4. 快速自测（服务启动后）
 
 ```bash
-curl http://localhost:1236/api/test
 curl http://localhost:1236/api/manga                          # 取 data[].id（SHA-256 hex）
 curl -X POST http://localhost:1236/api/manga/import -H "Content-Type: application/json" -d "{\"path\":\"D:/manga\"}"
 curl http://localhost:1236/api/manga/{id}/cover -o cover.jpg

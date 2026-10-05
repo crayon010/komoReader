@@ -1,8 +1,8 @@
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    title?: string;
+    title?: string
   }
 }
 
@@ -24,10 +24,10 @@ const router = createRouter({
       meta: { title: '设置' },
     },
   ],
-});
+})
 
 router.afterEach((to) => {
-  document.title = `komoReader · 漫画/小说/PDF文件阅读器`;
-});
+  document.title = `komoReader · 漫画/小说/PDF文件阅读器`
+})
 
-export default router;
+export default router

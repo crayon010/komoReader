@@ -7,7 +7,8 @@ Vue 3 + TypeScript + Vite 的本地漫画 / 小说 / PDF 阅读器前端，对�
 ```
 src/
   api/          HTTP 封装与接口（manga.ts、http.ts）
-  components/   AppHeader、ReaderTabBar、MangaCard、VirtualMangaGrid
+  components/   AppHeader、ReaderTabBar、MangaCard、VirtualMangaGrid、BackFirstButton
+  composables/  useGoLibrary 等组合式函数
   router/       路由（hash 模式，打包进 jar 后刷新不 404）
   stores/       tabs.ts 模块级单例：阅读 tab 状态 + 进度读写
   types/        Manga 等类型定义

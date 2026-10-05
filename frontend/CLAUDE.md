@@ -53,9 +53,9 @@
 interface Manga {
   id: string
   name: string
-  coverUrl: string   // /api/manga/{id}/cover
   totalPages: number
   path: string
+  type?: string
 }
 示例组件
 <template>

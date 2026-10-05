@@ -13,14 +13,14 @@ public class Result<T> {
     private T data;
 
     public static <T> Result<T> success(T data) {
-        return build(ResultCode.SUCCESS, data);
+        return of(ResultCode.SUCCESS, data);
     }
 
     public static <T> Result<T> error(ResultCode resultCode, T data) {
-        return build(resultCode, data);
+        return of(resultCode, data);
     }
 
-    public static <T> Result<T> build(ResultCode resultCode, T data) {
+    private static <T> Result<T> of(ResultCode resultCode, T data) {
         Result<T> r = new Result<>();
         r.code = resultCode.getCode();
         r.message = resultCode.getMessage();

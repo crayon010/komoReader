@@ -6,7 +6,7 @@
 
 - Java 21 / Spring Boot 4.1（`spring-boot-starter-webmvc`）
 - Apache Commons Compress：读取 zip 条目
-- **无数据库**：`application.yml` 已排除 DataSource / MyBatis-Plus 自动配置，未装 MySQL 的机器也能启动；MySQL 落库为预留设计（见 `docs/DB_DESIGN.md`，未实施）
+- **无数据库**：未引入任何数据库依赖，未装 MySQL 的机器也能启动；MySQL 落库为预留设计（见 `docs/DB_DESIGN.md`，未实施）
 
 ## 运行
 
@@ -23,23 +23,21 @@
 - 支持格式：`.zip` / `.cbz`（含伪装成其他后缀的 zip，靠试开识别）、`.epub` / `.txt`（novel）、`.pdf`、`.mobi`（仅识别）
 - `id` = 文件 / 文件夹名的 SHA-256 hex，名称不变则稳定
 - 扫描结果缓存在目录下的 `.manga-cache.properties`（mtime + size + 页数），未变化不重复拆包
-- ponytail: 单一当前目录，多用户同时扫不同目录会互相覆盖；需要时让扫描结果带各自 root
+- ponytail: 导入目录列表存 user.home 单文件；要按用户隔离或换机器同步时再挪
 
 ## 目录结构
 
 ```
 src/main/java/com/example/springboot/
 ├── controller/
-│   ├── MangaList.java      # /api/manga 全部接口
-│   └── Test.java           # GET /api/test 冒烟测试
+│   └── MangaList.java      # /api/manga、/api/roots 全部接口
 ├── service/
 │   └── MangaService.java   # 扫描、缓存、目录图片读取
 ├── entity/
-│   └── MangaMeta.java      # id/name/coverUrl/totalPages/path/type
+│   └── MangaMeta.java      # id/name/totalPages/path/type
 ├── common/                 # Result 统一包装 + 全局异常处理
-├── DTO/
 └── util/
-    └── ZipImageReader.java # zip 图片列举 / 读取
+    └── ZipImageReader.java # zip 图片列举 / 读取、epub 封面定位
 ```
 
 ## 接口契约
@@ -50,6 +48,8 @@ src/main/java/com/example/springboot/
 | --- | --- | --- |
 | GET | `/api/manga` | `Result<MangaMeta[]>` |
 | POST | `/api/manga/import` | 裸对象 `{success, message}` |
+| GET | `/api/roots` | `Result<RootInfo[]>` |
+| DELETE | `/api/roots?path=…` | 裸对象 `{success, message}` |
 | GET | `/api/manga/{id}/cover` | 封面图片流 |
 | GET | `/api/manga/{id}/pages` | 裸数组 `[{index}]` |
 | GET | `/api/manga/{id}/page?index=N` | 单页图片流 |

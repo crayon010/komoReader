@@ -1,50 +1,50 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch } from 'vue'
 
-import type { Manga } from '@/types/manga';
-import { mangaTypeLabel } from '@/types/manga';
-import { loadCover } from '@/utils/coverLoader';
-import { useLink } from 'vue-router';
+import type { Manga } from '@/types/manga'
+import { mangaTypeLabel } from '@/types/manga'
+import { loadCover } from '@/utils/coverLoader'
+import { useLink } from 'vue-router'
 
 const props = withDefaults(
   defineProps<{
-    manga: Manga;
+    manga: Manga
     /** 卡片实际显示宽度（px），用于请求对应档位的缩略图 */
-    coverWidth?: number;
+    coverWidth?: number
   }>(),
   { coverWidth: 320 },
-);
+)
 
-const coverSrc = ref('');
-const loaded = ref(false);
-const failed = ref(false);
+const coverSrc = ref('')
+const loaded = ref(false)
+const failed = ref(false)
 
-let requestToken = 0;
+let requestToken = 0
 
 watch(
   () => [props.manga, props.coverWidth] as const,
   async ([manga, width]) => {
-    const token = ++requestToken;
-    coverSrc.value = '';
-    loaded.value = false;
-    failed.value = false;
+    const token = ++requestToken
+    coverSrc.value = ''
+    loaded.value = false
+    failed.value = false
     try {
-      const url = await loadCover(manga, width);
-      if (token !== requestToken) return;
-      coverSrc.value = url;
-      if (url === '') failed.value = true;
+      const url = await loadCover(manga, width)
+      if (token !== requestToken) return
+      coverSrc.value = url
+      if (url === '') failed.value = true
     } catch {
-      if (token === requestToken) failed.value = true;
+      if (token === requestToken) failed.value = true
     }
   },
   { immediate: true },
-);
+)
 </script>
 
 <template>
   <article class="manga-card">
     <div class="manga-card-cover">
-      <span class="manga-card-badge" :class="`is-${manga.type ?? 'manga'}`">
+      <span class="manga-card-badge type-badge" :class="`is-${manga.type ?? 'manga'}`">
         {{ mangaTypeLabel(manga.type) }}
       </span>
       <img
@@ -100,28 +100,7 @@ watch(
   top: 6px;
   right: 6px;
   z-index: 1;
-  padding: 2px 8px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: #fff;
-  border-radius: 4px;
   pointer-events: none;
-}
-
-.manga-card-badge.is-manga {
-  background: #2f6fe0;
-}
-
-.manga-card-badge.is-novel {
-  background: #e5484d;
-}
-
-.manga-card-badge.is-pdf {
-  background: #f5a623;
-}
-
-.manga-card-badge.is-gallery {
-  background: #67c23a;
 }
 
 .manga-card-cover img {

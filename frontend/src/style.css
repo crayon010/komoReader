@@ -76,3 +76,43 @@ button:disabled {
 img {
   display: block;
 }
+
+/* 空态/错误提示（阅读库、阅读器、书籍页共用） */
+.state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.state.error {
+  color: #ff6b6b;
+}
+
+/* 类型角标（MangaCard、BookView 共用），配色对应 mangaTypeLabel */
+.type-badge {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #fff;
+  border-radius: 4px;
+}
+
+.type-badge.is-manga {
+  background: #2f6fe0;
+}
+
+.type-badge.is-novel {
+  background: #e5484d;
+}
+
+.type-badge.is-pdf {
+  background: #f5a623;
+}
+
+.type-badge.is-gallery {
+  background: #67c23a;
+}
