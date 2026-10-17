@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref } from 'vue';
 
-import { importFolder } from '@/api/manga'
+import { importFolder } from '@/api/manga';
 
-const path = ref('')
-const loading = ref(false)
-const message = ref('')
+const path = ref('');
+const loading = ref(false);
+const message = ref('');
 
 async function submit() {
-  const p = path.value.trim()
-  if (!p || loading.value) return
+  const p = path.value.trim();
+  if (!p || loading.value) return;
 
-  loading.value = true
-  message.value = ''
+  loading.value = true;
+  message.value = '';
   try {
-    const res = await importFolder(p)
-    message.value = res.message || '导入成功'
-    path.value = ''
+    const res = await importFolder(p);
+    message.value = res.message || '导入成功';
+    path.value = '';
   } catch (e) {
-    message.value = e instanceof Error ? e.message : String(e)
+    message.value = e instanceof Error ? e.message : String(e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>

@@ -5,10 +5,10 @@ import {
   closeReaderTab,
   activateReaderTab,
   tabsState,
-} from '@/stores/tabs'
-import { useGoLibrary } from '@/composables/useGoLibrary'
+} from '@/stores/tabs';
+import { useGoLibrary } from '@/composables/useGoLibrary';
 
-const goLibrary = useGoLibrary()
+const goLibrary = useGoLibrary();
 </script>
 
 <template>

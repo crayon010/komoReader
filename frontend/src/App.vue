@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { watch } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { watch } from 'vue';
+import { RouterView, useRoute } from 'vue-router';
 
-import AppHeader from '@/components/AppHeader.vue'
-import ReaderTabBar from '@/components/ReaderTabBar.vue'
-import BookView from '@/views/BookView.vue'
-import ReaderView from '@/views/ReaderView.vue'
-import { activateLibrary, activateSettings, activeMangaId, tabsState } from '@/stores/tabs'
+import AppHeader from '@/components/AppHeader.vue';
+import ReaderTabBar from '@/components/ReaderTabBar.vue';
+import BookView from '@/views/BookView.vue';
+import ReaderView from '@/views/ReaderView.vue';
+import { activateLibrary, activateSettings, activeMangaId, tabsState } from '@/stores/tabs';
 
-const route = useRoute()
+const route = useRoute();
 
 // 浏览器前进/后退、顶部导航都会走路由，这里把路由同步到激活视图
 watch(
   () => route.name,
   (name) => {
-    if (name === 'library') activateLibrary()
-    else if (name === 'settings') activateSettings()
+    if (name === 'library') activateLibrary();
+    else if (name === 'settings') activateSettings();
   },
-)
+);
 </script>
 
 <template>

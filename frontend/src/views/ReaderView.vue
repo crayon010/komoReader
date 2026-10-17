@@ -1,95 +1,95 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { mangaPageUrl } from '@/api/manga'
-import { loadProgress, saveProgress } from '@/stores/tabs'
-import { useGoLibrary } from '@/composables/useGoLibrary'
-import BackFirstButton from '@/components/BackFirstButton.vue'
+import { mangaPageUrl } from '@/api/manga';
+import { loadProgress, saveProgress } from '@/stores/tabs';
+import { useGoLibrary } from '@/composables/useGoLibrary';
+import BackFirstButton from '@/components/BackFirstButton.vue';
 
 const props = defineProps<{
-  mangaId: string
-  mangaName: string
-  totalPages: number
+  mangaId: string;
+  mangaName: string;
+  totalPages: number;
   /** tab 是否处于激活态；只有激活的 tab 响应键盘操作 */
-  active: boolean
-}>()
+  active: boolean;
+}>();
 
-const current = ref(0)
-const scale = ref(0.3)
-const stage = ref<HTMLElement | null>(null)
+const current = ref(0);
+const scale = ref(0.3);
+const stage = ref<HTMLElement | null>(null);
 
 // 浏览模式：单页/双页 + 翻页/滚动，选择持久化到 localStorage
 const pageMode = ref<'single' | 'double'>(
   localStorage.getItem('readerPageMode') === 'double' ? 'double' : 'single',
-)
+);
 const readMode = ref<'page' | 'scroll'>(
   localStorage.getItem('readerScrollMode') === 'scroll' ? 'scroll' : 'page',
-)
+);
 
-watch(pageMode, (v) => localStorage.setItem('readerPageMode', v))
-watch(readMode, (v) => localStorage.setItem('readerScrollMode', v))
+watch(pageMode, (v) => localStorage.setItem('readerPageMode', v));
+watch(readMode, (v) => localStorage.setItem('readerScrollMode', v));
 
-const total = computed(() => props.totalPages)
-const step = computed(() => (pageMode.value === 'double' ? 2 : 1))
+const total = computed(() => props.totalPages);
+const step = computed(() => (pageMode.value === 'double' ? 2 : 1));
 
 // 进度按百分比存 localStorage（与小说共用一套 key），刷新页面后重新进入可续读
-const savedProgress = loadProgress(props.mangaId)
+const savedProgress = loadProgress(props.mangaId);
 if (total.value > 0 && savedProgress !== null) {
-  current.value = Math.min(total.value - 1, Math.max(0, Math.round(savedProgress * total.value)))
+  current.value = Math.min(total.value - 1, Math.max(0, Math.round(savedProgress * total.value)));
 }
 
 watch(current, (page) => {
-  if (total.value > 0) saveProgress(props.mangaId, page / total.value)
-})
+  if (total.value > 0) saveProgress(props.mangaId, page / total.value);
+});
 
 const currentUrl = computed(() =>
   total.value > 0 ? mangaPageUrl(props.mangaId, current.value) : '',
-)
+);
 const nextUrl = computed(() =>
   total.value > 0 && current.value + 1 < total.value
     ? mangaPageUrl(props.mangaId, current.value + 1)
     : '',
-)
+);
 
 function prev() {
-  if (current.value > 0) current.value = Math.max(0, current.value - step.value)
+  if (current.value > 0) current.value = Math.max(0, current.value - step.value);
 }
 
 function next() {
   if (current.value < total.value - 1) {
-    current.value = Math.min(total.value - 1, current.value + step.value)
+    current.value = Math.min(total.value - 1, current.value + step.value);
   }
 }
 
 // 跳页输入框：回车提交
-const gotoText = ref('')
+const gotoText = ref('');
 
 function goToPage() {
-  const n = Number.parseInt(gotoText.value, 10)
+  const n = Number.parseInt(gotoText.value, 10);
   if (total.value > 0 && Number.isFinite(n)) {
-    current.value = Math.min(total.value - 1, Math.max(0, n - 1))
+    current.value = Math.min(total.value - 1, Math.max(0, n - 1));
   }
-  gotoText.value = ''
+  gotoText.value = '';
 }
 
-let stageRaf = 0
+let stageRaf = 0;
 
 /** 滚动模式没有页码概念，用滚动位置反推当前页；翻页模式由 current 直接驱动 */
 function onStageScroll() {
-  if (readMode.value !== 'scroll' || stageRaf) return
+  if (readMode.value !== 'scroll' || stageRaf) return;
   stageRaf = window.requestAnimationFrame(() => {
-    stageRaf = 0
-    const el = stage.value
-    if (!el) return
-    const top = el.getBoundingClientRect().top
-    const imgs = el.querySelectorAll('img')
+    stageRaf = 0;
+    const el = stage.value;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    const imgs = el.querySelectorAll('img');
     for (let i = 0; i < imgs.length; i++) {
       if (imgs[i].getBoundingClientRect().bottom > top + 1) {
-        if (current.value !== i) current.value = i
-        return
+        if (current.value !== i) current.value = i;
+        return;
       }
     }
-  })
+  });
 }
 
 /**
@@ -97,84 +97,84 @@ function onStageScroll() {
  * 否则前面全是 0 高度，滚动距离算不出正确位置。
  */
 function restoreScrollPosition() {
-  if (readMode.value !== 'scroll' || current.value <= 0) return
+  if (readMode.value !== 'scroll' || current.value <= 0) return;
   nextTick(() => {
-    const el = stage.value
-    if (!el) return
-    const imgs = Array.from(el.querySelectorAll('img'))
-    const target = imgs[current.value]
-    if (!target) return
+    const el = stage.value;
+    if (!el) return;
+    const imgs = Array.from(el.querySelectorAll('img'));
+    const target = imgs[current.value];
+    if (!target) return;
     const jump = () => {
-      el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top
-    }
-    const pending = imgs.slice(0, current.value + 1).filter((img) => !img.complete)
+      el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    };
+    const pending = imgs.slice(0, current.value + 1).filter((img) => !img.complete);
     if (pending.length === 0) {
-      jump()
-      return
+      jump();
+      return;
     }
     void Promise.all(
       pending.map(
         (img) =>
           new Promise<void>((resolve) => {
-            img.addEventListener('load', () => resolve(), { once: true })
-            img.addEventListener('error', () => resolve(), { once: true })
+            img.addEventListener('load', () => resolve(), { once: true });
+            img.addEventListener('error', () => resolve(), { once: true });
           }),
       ),
-    ).then(jump)
-  })
+    ).then(jump);
+  });
 }
 
 function zoomIn() {
-  scale.value = Math.min(scale.value + 0.2, 4)
+  scale.value = Math.min(scale.value + 0.2, 4);
 }
 
 function zoomOut() {
-  scale.value = Math.max(scale.value - 0.2, 0.1)
+  scale.value = Math.max(scale.value - 0.2, 0.1);
 }
 
 function resetZoom() {
-  scale.value = 1
+  scale.value = 1;
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (!props.active) return
+  if (!props.active) return;
   switch (e.key) {
     case 'ArrowLeft':
-      prev()
-      break
+      prev();
+      break;
     case 'ArrowRight':
-      next()
-      break
+      next();
+      break;
     case 'ArrowUp':
     case '+':
     case '=':
-      zoomIn()
-      break
+      zoomIn();
+      break;
     case 'ArrowDown':
     case '-':
-      zoomOut()
-      break
+      zoomOut();
+      break;
     case 'Escape':
-      resetZoom()
-      break
+      resetZoom();
+      break;
   }
 }
 
-const goLibrary = useGoLibrary()
+const goLibrary = useGoLibrary();
 
 watch(readMode, (v) => {
-  if (v === 'scroll') restoreScrollPosition()
-})
+  if (v === 'scroll') restoreScrollPosition();
+});
 
 onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-  restoreScrollPosition()
-})
+  window.addEventListener('keydown', onKeydown);
+  restoreScrollPosition();
+});
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
-  if (stageRaf) window.cancelAnimationFrame(stageRaf)
-})
+  window.removeEventListener('keydown', onKeydown);
+  if (stageRaf) window.cancelAnimationFrame(stageRaf);
+});
 </script>
 
 <template>

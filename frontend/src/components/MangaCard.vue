@@ -1,44 +1,44 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch } from 'vue';
 
-import type { Manga } from '@/types/manga'
-import { mangaTypeLabel } from '@/types/manga'
-import { loadCover } from '@/utils/coverLoader'
-import { useLink } from 'vue-router'
+import type { Manga } from '@/types/manga';
+import { mangaTypeLabel } from '@/types/manga';
+import { loadCover } from '@/utils/coverLoader';
+import { useLink } from 'vue-router';
 
 const props = withDefaults(
   defineProps<{
-    manga: Manga
+    manga: Manga;
     /** 卡片实际显示宽度（px），用于请求对应档位的缩略图 */
-    coverWidth?: number
+    coverWidth?: number;
   }>(),
   { coverWidth: 320 },
-)
+);
 
-const coverSrc = ref('')
-const loaded = ref(false)
-const failed = ref(false)
+const coverSrc = ref('');
+const loaded = ref(false);
+const failed = ref(false);
 
-let requestToken = 0
+let requestToken = 0;
 
 watch(
   () => [props.manga, props.coverWidth] as const,
   async ([manga, width]) => {
-    const token = ++requestToken
-    coverSrc.value = ''
-    loaded.value = false
-    failed.value = false
+    const token = ++requestToken;
+    coverSrc.value = '';
+    loaded.value = false;
+    failed.value = false;
     try {
-      const url = await loadCover(manga, width)
-      if (token !== requestToken) return
-      coverSrc.value = url
-      if (url === '') failed.value = true
+      const url = await loadCover(manga, width);
+      if (token !== requestToken) return;
+      coverSrc.value = url;
+      if (url === '') failed.value = true;
     } catch {
-      if (token === requestToken) failed.value = true
+      if (token === requestToken) failed.value = true;
     }
   },
   { immediate: true },
-)
+);
 </script>
 
 <template>

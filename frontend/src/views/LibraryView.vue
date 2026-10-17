@@ -1,84 +1,84 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue';
 
-import { fetchMangaList, fetchRoots, removeRoot } from '@/api/manga'
-import type { Manga, MangaRoot } from '@/types/manga'
-import VirtualMangaGrid from '@/components/VirtualMangaGrid.vue'
-import { resetFailedCovers } from '@/utils/coverLoader'
-import { openReaderTab } from '@/stores/tabs'
+import { fetchMangaList, fetchRoots, removeRoot } from '@/api/manga';
+import type { Manga, MangaRoot } from '@/types/manga';
+import VirtualMangaGrid from '@/components/VirtualMangaGrid.vue';
+import { resetFailedCovers } from '@/utils/coverLoader';
+import { openReaderTab } from '@/stores/tabs';
 
-defineOptions({ name: 'LibraryView' })
+defineOptions({ name: 'LibraryView' });
 
-const roots = ref<MangaRoot[]>([])
-const currentRoot = ref<MangaRoot | null>(null)
-const mangaList = ref<Manga[]>([])
-const loading = ref(false)
-const error = ref('')
+const roots = ref<MangaRoot[]>([]);
+const currentRoot = ref<MangaRoot | null>(null);
+const mangaList = ref<Manga[]>([]);
+const loading = ref(false);
+const error = ref('');
 // 搜索只在进入文件夹后可用，过滤当前文件夹内条目
-const query = ref('')
+const query = ref('');
 
 const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return mangaList.value
-  return mangaList.value.filter((m) => m.name.toLowerCase().includes(q))
-})
+  const q = query.value.trim().toLowerCase();
+  if (!q) return mangaList.value;
+  return mangaList.value.filter((m) => m.name.toLowerCase().includes(q));
+});
 
 /** 第一级：加载导入的文件夹列表（只读名字，不扫描内容） */
 async function loadRoots() {
-  loading.value = true
-  error.value = ''
+  loading.value = true;
+  error.value = '';
   try {
-    roots.value = (await fetchRoots()).data
+    roots.value = (await fetchRoots()).data;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    error.value = e instanceof Error ? e.message : String(e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 /** 第二级：扫描当前文件夹内容 */
 async function load() {
-  if (!currentRoot.value) return
-  loading.value = true
-  error.value = ''
-  resetFailedCovers() // 上次加载失败的封面这次重试
+  if (!currentRoot.value) return;
+  loading.value = true;
+  error.value = '';
+  resetFailedCovers(); // 上次加载失败的封面这次重试
   try {
-    mangaList.value = (await fetchMangaList(currentRoot.value.path)).data
+    mangaList.value = (await fetchMangaList(currentRoot.value.path)).data;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    error.value = e instanceof Error ? e.message : String(e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function enterFolder(root: MangaRoot) {
-  currentRoot.value = root
-  mangaList.value = []
-  query.value = ''
-  load()
+  currentRoot.value = root;
+  mangaList.value = [];
+  query.value = '';
+  load();
 }
 
 function backToRoots() {
-  currentRoot.value = null
-  query.value = ''
-  error.value = ''
+  currentRoot.value = null;
+  query.value = '';
+  error.value = '';
 }
 
 async function deleteRoot(root: MangaRoot) {
-  if (!window.confirm(`删除「${root.name}」？磁盘文件不会被删除`)) return
+  if (!window.confirm(`删除「${root.name}」？磁盘文件不会被删除`)) return;
   try {
-    await removeRoot(root.path)
-    await loadRoots()
+    await removeRoot(root.path);
+    await loadRoots();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    error.value = e instanceof Error ? e.message : String(e);
   }
 }
 
 function openReader(manga: Manga) {
-  openReaderTab(manga)
+  openReaderTab(manga);
 }
 
-onMounted(loadRoots)
+onMounted(loadRoots);
 </script>
 
 <template>
