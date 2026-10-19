@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue';
 import { fetchMangaList, fetchRoots, removeRoot } from '@/api/manga';
 import type { Manga, MangaRoot } from '@/types/manga';
 import VirtualMangaGrid from '@/components/VirtualMangaGrid.vue';
-import { resetFailedCovers } from '@/utils/coverLoader';
+import { resetFailedCovers, enterFile } from '@/utils/coverLoader';
 import { openReaderTab } from '@/stores/tabs';
 
 defineOptions({ name: 'LibraryView' });
@@ -56,6 +56,7 @@ function enterFolder(root: MangaRoot) {
   mangaList.value = [];
   query.value = '';
   load();
+  enterFile();
 }
 
 function backToRoots() {
@@ -276,7 +277,6 @@ onMounted(loadRoots);
   cursor: pointer;
   transition: all 0.5s;
   transform-origin: 0;
-  box-shadow: 1px 1px 12px #000;
   display: flex;
   align-items: center;
   justify-content: center;

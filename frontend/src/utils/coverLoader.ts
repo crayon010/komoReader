@@ -19,13 +19,19 @@ const MAX_CACHE_ENTRIES = 200;
 const MAX_CONCURRENT = 4;
 /** WebP 编码质量 */
 const WEBP_QUALITY = 0.82;
+/** 是否进入文件夹内，判断是否切断其他文件夹内封面的请求 */
+let isEnterFile = false;
 
 const cache = new Map<string, string>();
 /** 加载失败的封面，本次会话内不再重复请求；点"刷新"或整页刷新后重置 */
 const failedKeys = new Set<string>();
+interface Task {
+  key: string;
+  run: () => void; // 真正的任务执行函数
+}
 const inflight = new Map<string, Promise<string>>();
-const highQueue: Array<() => void> = [];
-const lowQueue: Array<() => void> = [];
+const highQueue: Task[] = [];
+const lowQueue: Task[] = [];
 let activeCount = 0;
 
 export type CoverPriority = 'high' | 'low';
@@ -59,17 +65,17 @@ function touchCache(key: string, url: string) {
   }
 }
 
-function schedule(task: () => void, low: boolean) {
-  (low ? lowQueue : highQueue).push(task);
+function schedule(key: string, task: () => void, low: boolean) {
+  (low ? lowQueue : highQueue).push({ key, run: task });
   pump();
 }
 
 function pump() {
-  while (activeCount < MAX_CONCURRENT) {
+  while (activeCount < (highQueue.length ? 6 : MAX_CONCURRENT)) {
     const task = highQueue.shift() ?? lowQueue.shift();
     if (!task) return;
     activeCount++;
-    task();
+    task.run();
   }
 }
 
@@ -114,6 +120,10 @@ async function fetchAndResize(manga: Manga, width: number): Promise<string> {
   return toThumbnailUrl(blob, width);
 }
 
+export function enterFile() {
+  isEnterFile = true;
+}
+
 /**
  * 加载封面缩略图，返回可用的 Blob URL。
  * priority='low' 的任务只在空闲时排队，不抢可视区的请求。
@@ -127,6 +137,13 @@ export function loadCover(
   const width = bucketWidth(targetWidth);
   const key = cacheKey(manga, width);
 
+  if (isEnterFile) {
+    for (const t of highQueue) inflight.delete(t.key);
+    for (const t of lowQueue) inflight.delete(t.key);
+    highQueue.length = 0;
+    lowQueue.length = 0;
+    isEnterFile = false;
+  }
   const cached = cache.get(key);
   if (cached) {
     touchCache(key, cached);
@@ -158,7 +175,7 @@ export function loadCover(
           pump();
         });
     };
-    schedule(task, priority === 'low');
+    schedule(key, task, priority === 'low');
   });
   inflight.set(key, promise);
   return promise;
