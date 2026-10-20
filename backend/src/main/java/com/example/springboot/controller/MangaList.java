@@ -3,9 +3,11 @@ package com.example.springboot.controller;
 import com.example.springboot.common.Result;
 import com.example.springboot.service.MangaService;
 import com.example.springboot.util.ZipImageReader;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.ServletWebRequest;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -71,8 +73,13 @@ public class MangaList {
     }
 
     @GetMapping("/manga/{id}/cover")
-    public void mangaCover(@PathVariable String id, HttpServletResponse res) throws IOException {
+    public void mangaCover(@PathVariable String id,
+                           @RequestParam(required = false, defaultValue = "512") int w,
+                           HttpServletRequest req,
+                           HttpServletResponse res) throws IOException {
         Path mangaPath = mangaService.getMangaPath(id);
+        // 文件类（zip/cbz/epub）封面版本只由文件本身决定：先判 304
+        if (!Files.isDirectory(mangaPath) && notModified(req, res, mangaPath, "")) return;
         // 封面：文件夹取第一张图；epub 按包文档声明取，声明缺失/解析失败回退第一张；
         // zip/cbz 这类纯图片包没有封面声明，直接第一张
         String coverEntry = null;
@@ -84,10 +91,22 @@ public class MangaList {
             List<String> images = mangaService.listImages(mangaPath);
             coverEntry = images.isEmpty() ? null : images.getFirst();
         }
-        if (coverEntry != null) {
-            res.setContentType(ZipImageReader.contentType(coverEntry));
-            res.getOutputStream().write(mangaService.readImage(mangaPath, coverEntry));
-        }
+        if (coverEntry == null) return;
+        // 文件夹类：封面是第一张图，版本取该文件 mtime+size+条目名
+        if (Files.isDirectory(mangaPath)
+                && notModified(req, res, mangaPath.resolve(coverEntry), coverEntry)) return;
+        res.setContentType(ZipImageReader.contentType(coverEntry));
+        res.getOutputStream().write(mangaService.readImage(mangaPath, coverEntry));
+    }
+
+    /** 源文件 mtime+size+条目名生成 ETag */
+    static boolean notModified(HttpServletRequest req, HttpServletResponse res,
+                               Path source, String entry) throws IOException {
+        String etag = "\"" + Files.getLastModifiedTime(source).toMillis()
+                + '-' + Files.size(source) + '-' + entry.hashCode() + "\"";
+        res.setHeader("ETag", etag);
+        res.setHeader("Cache-Control", "no-cache");
+        return new ServletWebRequest(req, res).checkNotModified(etag);
     }
 
     // 书籍原始文件流（txt/epub/pdf 共用）：前端 BookView 用它做 iframe/fetch/epub.js 渲染
