@@ -61,6 +61,14 @@ function next() {
   }
 }
 
+function backToFirst() {
+  if (readMode.value === 'scroll' && stage.value) {
+    stage.value.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    current.value = 0;
+  }
+}
+
 // 跳页输入框：回车提交
 const gotoText = ref('');
 
@@ -185,7 +193,7 @@ onBeforeUnmount(() => {
       <span class="reader-page-indicator">
         {{
           total
-            ? `${current + 1}${pageMode === 'double' && current + 1 < total ? `-${current + 2}` : ''} / ${total}`
+            ? `${current + 1}${readMode === 'page' && pageMode === 'double' && current + 1 < total ? `-${current + 2}` : ''} / ${total}`
             : ''
         }}
       </span>
@@ -270,7 +278,7 @@ onBeforeUnmount(() => {
       <button type="button" :disabled="current >= total - 1" @click="next">下一页</button>
     </div>
 
-    <BackFirstButton @click="current = 0" />
+    <BackFirstButton @click="backToFirst" />
   </div>
 </template>
 
